@@ -36,23 +36,28 @@ foreign import ccall "cudd.h Cudd_Quit"
 newtype Cudd_ErrorType = Cudd_ErrorType CInt
   deriving (Eq, Ord)
 #{enum Cudd_ErrorType, Cudd_ErrorType
- , no_error            = CUDD_NO_ERROR
- , memory_out          = CUDD_MEMORY_OUT
- , too_many_nodes      = CUDD_TOO_MANY_NODES
- , max_mem_exceeded    = CUDD_MAX_MEM_EXCEEDED
- , timeout_expired     = CUDD_TIMEOUT_EXPIRED
- , invalid_arg         = CUDD_INVALID_ARG
- , internal_error      = CUDD_INTERNAL_ERROR
+ , cudd_no_error            = CUDD_NO_ERROR
+ , cudd_memory_out          = CUDD_MEMORY_OUT
+ , cudd_too_many_nodes      = CUDD_TOO_MANY_NODES
+ , cudd_max_mem_exceeded    = CUDD_MAX_MEM_EXCEEDED
+ , cudd_timeout_expired     = CUDD_TIMEOUT_EXPIRED
+ , cudd_invalid_arg         = CUDD_INVALID_ARG
+ , cudd_internal_error      = CUDD_INTERNAL_ERROR
  }
 
 foreign import ccall "cudd.h Cudd_ReadErrorCode" cudd_ReadErrorCode
   :: DdManager
   -> IO Cudd_ErrorType
 
+foreign import ccall "cudd.h Cudd_ClearErrorCode" cudd_ClearErrorCode
+  :: DdManager
+  -> IO ()
+
 
 
 
 newtype DdNode = DdNode (Ptr DdNode)
+  deriving (Eq, Show)
 
 -- | Returns the constant one projection function.
 foreign import ccall "cudd.h Cudd_ReadOne" cudd_ReadOne
@@ -126,6 +131,11 @@ foreign import ccall "cudd.h Cudd_bddCompose" cudd_bddCompose
   -> DdNode       -- ^ f
   -> DdNode       -- ^ g
   -> CInt         -- ^ v
+  -> IO DdNode
+
+-- | Complements a DdNode.
+foreign import ccall "cudd_wrappers.h Cudd_Not_Wrapper" cudd_Not
+  :: DdNode
   -> IO DdNode
 
 
