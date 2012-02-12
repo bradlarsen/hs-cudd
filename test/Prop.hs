@@ -113,12 +113,14 @@ eval assigns = eval'
 
 evalBdd :: Assignment -> Cudd.Bdd s -> Cudd.BddIO s Bool
 evalBdd assigns bdd = do
-  numVars <- Cudd.numVars
-  res <- foldM (\b i -> do i' <- Cudd.bddIthVar i
-                           if member i assigns
-                              then Cudd.bddRestrict b i'
-                              else Cudd.bddRestrict b =<< Cudd.bddNot i')
-               bdd [0..numVars - 1]
+  numVars  <- Cudd.numVars
+  true     <- Cudd.bddTrue
+  assigns' <- foldM (\b i -> do i' <- Cudd.bddIthVar i
+                                if member i assigns
+                                   then Cudd.bddAnd b i'
+                                   else Cudd.bddAnd b =<< Cudd.bddNot i')
+                     true [0..numVars - 1]
+  res <- Cudd.bddRestrict bdd assigns'
   Cudd.bddToBool res
 
 -- | Synthesize the sentence of propositional logic into a BDD.
