@@ -1,6 +1,6 @@
 Name:                hs-cudd
 Version:             0.0.0
-Synopsis:            Haskell bindings to the CUDD binary decision diagram library
+Synopsis:            Haskell bindings to the CUDD decision diagram library
 
 -- A longer description of the package.
 -- Description:

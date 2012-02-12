@@ -11,13 +11,13 @@ import Foreign.C.Types (CInt, CUInt, CULong)
 
 newtype DdManager = DdManager (Ptr DdManager)
 
-foreign import ccall "cudd.h Cudd_Init"
-  cudd_Init :: CUInt        -- ^ number of BDD and ADD variables
-            -> CUInt        -- ^ number of ZDD variables
-            -> CUInt        -- ^ initial size of each subtable of the unique table
-            -> CUInt        -- ^ initial number of entries in the cache
-            -> CULong       -- ^ target number of bytes for max memory occupation
-            -> IO DdManager
+foreign import ccall "cudd.h Cudd_Init" cudd_Init
+  :: CUInt        -- ^ number of BDD and ADD variables
+  -> CUInt        -- ^ number of ZDD variables
+  -> CUInt        -- ^ initial size of each subtable of the unique table
+  -> CUInt        -- ^ initial number of entries in the cache
+  -> CULong       -- ^ target number of bytes for max memory occupation
+  -> IO DdManager
 
 -- | The default size of each subtable of the unique table
 cudd_unique_slots :: CUInt
@@ -52,8 +52,6 @@ foreign import ccall "cudd.h Cudd_ReadErrorCode" cudd_ReadErrorCode
 foreign import ccall "cudd.h Cudd_ClearErrorCode" cudd_ClearErrorCode
   :: DdManager
   -> IO ()
-
-
 
 
 newtype DdNode = DdNode (Ptr DdNode)
