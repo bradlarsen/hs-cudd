@@ -23,10 +23,10 @@ Cabal-version:       >=1.8
 
 
 Library
+  Hs-Source-Dirs:    src
   Exposed-modules:   Cudd.Raw
                      Cudd
 
-  -- Packages needed in order to build this package.
   Build-depends:     base, transformers
 
   -- Modules not exported by this package.
@@ -34,15 +34,14 @@ Library
 
   Extra-libraries:   cudd, mtr, util, st, epd
 
-  -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   Build-tools:       hsc2hs
-
-  c-sources:         cbits/cudd_wrappers.c
-  include-dirs:      cbits
+  c-sources:         src/cbits/cudd_wrappers.c
+  include-dirs:      src/cbits
   includes:          cudd_wrappers.h
 
 
 Executable test-hs-cudd
+  Hs-Source-Dirs:    test
   Main-is:           TestHsCudd.hs
 
   Build-depends:     base, transformers, hs-cudd, HUnit
