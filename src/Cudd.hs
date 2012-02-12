@@ -19,6 +19,10 @@ module Cudd
   , bddNand
   , bddNor
   , bddXnor
+  , bddRestrict
+  , numVars
+  , numNodes
+  , bddToBool
   ) where
 
 import Cudd.Raw
@@ -26,7 +30,7 @@ import Cudd.Raw
 import Foreign (nullPtr)
 
 import Control.Exception (Exception, finally, throw)
-import Control.Monad (when)
+import Control.Monad (when, liftM)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Typeable (Typeable)
 
@@ -95,7 +99,7 @@ bddTrue = BddIO $ \mgr -> do
 
 bddFalse :: BddIO s (Bdd s)
 bddFalse = BddIO $ \mgr -> do
-  dd <- cudd_ReadZero mgr
+  dd <- cudd_ReadLogicZero mgr
   mkBdd mgr dd
 
 bddNewVar :: BddIO s (Bdd s)
@@ -139,3 +143,24 @@ bddNor = binop cudd_bddNor
 
 bddXnor :: Bdd s -> Bdd s -> BddIO s (Bdd s)
 bddXnor = binop cudd_bddXnor
+
+bddRestrict :: Bdd s -> Bdd s -> BddIO s (Bdd s)
+bddRestrict = binop cudd_bddRestrict
+
+numVars :: BddIO s Int
+numVars = BddIO $ \mgr -> liftM fromIntegral (cudd_ReadSize mgr)
+  
+numNodes :: BddIO s Int
+numNodes = BddIO $ \mgr -> liftM fromIntegral (cudd_ReadNodeCount mgr)
+
+bddToBool :: Bdd s -> BddIO s Bool
+bddToBool bdd = do
+  true  <- bddTrue
+  false <- bddFalse    
+  case bdd of
+    _ | bdd == true  -> return True
+      | bdd == false -> return False
+      | otherwise    -> error ("Cudd.bddToBool: non-terminal value\n" ++
+                               "  true is " ++ show true ++ "\n" ++
+                               "  false is " ++ show false ++ "\n" ++
+                               "  value is " ++ show bdd ++ "\n")

@@ -44,4 +44,4 @@ Executable test-hs-cudd
   Hs-Source-Dirs:    test
   Main-is:           TestHsCudd.hs
 
-  Build-depends:     base, transformers, hs-cudd, HUnit
+  Build-depends:     base, transformers, hs-cudd, HUnit, QuickCheck, containers

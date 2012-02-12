@@ -54,16 +54,18 @@ foreign import ccall "cudd.h Cudd_ClearErrorCode" cudd_ClearErrorCode
   -> IO ()
 
 
+
+
 newtype DdNode = DdNode (Ptr DdNode)
   deriving (Eq, Show)
 
--- | Returns the constant one projection function.
+-- | Returns logic 1.
 foreign import ccall "cudd.h Cudd_ReadOne" cudd_ReadOne
   :: DdManager
   -> IO DdNode
 
--- | Returns the constant zero projection function.
-foreign import ccall "cudd.h Cudd_ReadZero" cudd_ReadZero
+-- | Returns logic 0.
+foreign import ccall "cudd.h Cudd_ReadLogicZero" cudd_ReadLogicZero
   :: DdManager
   -> IO DdNode
 
@@ -136,6 +138,13 @@ foreign import ccall "cudd_wrappers.h Cudd_Not_Wrapper" cudd_Not
   :: DdNode
   -> IO DdNode
 
+-- | f if g
+foreign import ccall "cudd.h Cudd_bddRestrict" cudd_bddRestrict
+  :: DdManager
+  -> DdNode       -- ^ f, the BDD to restrict
+  -> DdNode       -- ^ g, the BDD to restrict by
+  -> IO DdNode
+
 
 
 
@@ -147,3 +156,16 @@ foreign import ccall "cudd.h Cudd_RecursiveDeref" cudd_RecursiveDeref
   :: DdManager
   -> DdNode
   -> IO ()
+
+
+
+
+-- | Returns the number of BDD variables in the manager.
+foreign import ccall "cudd.h Cudd_ReadSize" cudd_ReadSize
+  :: DdManager
+  -> IO CInt
+
+-- | Returns the number of nodes in the manager.
+foreign import ccall "cudd.h Cudd_ReadNodeCount" cudd_ReadNodeCount
+  :: DdManager
+  -> IO CInt

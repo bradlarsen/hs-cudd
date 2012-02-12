@@ -1,34 +1,55 @@
 module Main where
 
 import Cudd
+import Prop
 
+import Control.Monad (forM_, forM)
 import Control.Monad.IO.Class (liftIO)
 import System.IO (stderr)
 import Text.Printf (hPrintf)
 
-import Test.HUnit
-import Test.HUnit.Text
+import Test.QuickCheck (Property, quickCheckWith, stdArgs,
+                        Args (maxSuccess, maxDiscard), Testable,
+                        verboseCheckWith)
+import Test.QuickCheck.Monadic (monadicIO, assert, run)
 
-sinkTests :: Test
-sinkTests = TestList [
+import Test.HUnit (Test (TestCase, TestList), assertEqual, assertBool)
+import Test.HUnit.Text (runTestTT)
+
+unitTests :: Test
+unitTests = TestList [
     TestCase $ runBddIO $ do
-      false <- bddFalse
-      faf <- bddAnd false false
-      liftIO $ assertEqual "false /\\ false == false" faf false
-  , TestCase $ runBddIO $ do
-      true <- bddTrue
-      tat <- bddAnd true true
-      liftIO $ assertEqual "true /\\ true == true" tat true
-  , TestCase $ runBddIO $ do
-      true <- bddTrue
-      false <- bddFalse
-      taf <- bddAnd true false
-      liftIO $ assertEqual "true /\\ false == false" taf false
-      fat <- bddAnd false true
-      liftIO $ assertEqual "false /\\ true == false" fat false
+      true    <- bddTrue
+      false   <- bddFalse
+      true'   <- bddNot true
+      false'  <- bddNot false
+      true''  <- bddNot true'
+      false'' <- bddNot false'
+      liftIO $ assertBool "true /= false" (true /= false)
+      liftIO $ assertEqual "~ true == false" true' false
+      liftIO $ assertEqual "~ false == true" false' true
+      liftIO $ assertEqual "~ ~ false == false" false'' false
+      liftIO $ assertEqual "~ ~ true == true" true'' true
   ]
+
+symbolicEvaluation :: Prop.Prop -> Property
+symbolicEvaluation prop = monadicIO $ do
+  eq <- run $ runBddIO $ do
+          propBdd <- synthesizeBdd prop
+          forM (assignments $ vars prop) $ \ass -> do
+            let truthiness = eval ass prop
+            bddTruthiness <- evalBdd ass propBdd
+            return (truthiness == bddTruthiness)
+  assert (and eq)
 
 main :: IO ()
 main = do
-  _counts <- runTestTT sinkTests
+  putStrLn "### HUnit tests ###"
+  _counts <- runTestTT unitTests
+
+  putStrLn "### QuickCheck tests ###"
+  let conf = stdArgs { maxSuccess = 1000, maxDiscard = 1000 }
+  let qc :: Testable p => p -> IO ()
+      qc = quickCheckWith conf
+  qc symbolicEvaluation
   return ()
