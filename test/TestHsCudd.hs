@@ -10,7 +10,7 @@ import Text.Printf (hPrintf)
 
 import Test.QuickCheck (Property, quickCheckWith, stdArgs,
                         Args (maxSuccess, maxDiscard), Testable,
-                        verboseCheckWith)
+                        verboseCheckWith, (==>))
 import Test.QuickCheck.Monadic (monadicIO, assert, run)
 
 import Test.HUnit (Test (TestCase, TestList), assertEqual, assertBool)
@@ -42,14 +42,27 @@ symbolicEvaluation prop = monadicIO $ do
             return (truthiness == bddTruthiness)
   assert (and eq)
 
+prop_projectionDoesNotAddNodes :: Prop.Prop -> Property
+prop_projectionDoesNotAddNodes prop = monadicIO $ do
+  eq <- run $ runBddIO $ do
+          propBdd <- synthesizeBdd prop
+          size <- numNodes
+          forM (vars prop) $ \i -> do
+            iBdd <- bddIthVar i
+            size' <- numNodes
+            return (size == size')
+  assert (and eq)
+
+
 main :: IO ()
 main = do
   putStrLn "### HUnit tests ###"
   _counts <- runTestTT unitTests
 
   putStrLn "### QuickCheck tests ###"
-  let conf = stdArgs { maxSuccess = 1000, maxDiscard = 1000 }
+  let conf = stdArgs { maxSuccess = 100, maxDiscard = 1000 }
   let qc :: Testable p => p -> IO ()
       qc = quickCheckWith conf
   qc symbolicEvaluation
+  qc prop_projectionDoesNotAddNodes
   return ()
