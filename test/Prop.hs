@@ -57,13 +57,18 @@ arbitraryProp vars = go
                       let s2 = maxNodes - s1
                       liftM2 cons (go s1) (go s2)
 
-shrinkProp :: Prop -> [Prop]
-shrinkProp prop =
+boundShrinkProp :: Int -> Prop -> [Prop]
+boundShrinkProp bound prop
+  | bound <= 0 = []
+  | otherwise =
   case prop of
     PFalse      -> []
     PTrue       -> []
-    PVar i      -> PFalse : PTrue : [ PVar i' | i' <- shrinkIntegral i, i' >= 0 ]
-    PNot p      -> PFalse : PTrue : p : [ PNot p' | p' <- shrinkProp p ]
+    PVar i      -> [ PVar i' | i' <- shrinkIntegral i, i' >= 0 ] ++
+                   [ PFalse, PTrue ]
+    PNot p      -> p : boundShrinkProp (pred bound) p ++
+                   [ PNot p' | p' <- boundShrinkProp (pred bound) p ] ++
+                   [ PFalse, PTrue ]
     PAnd p1 p2  -> bin PAnd p1 p2
     POr p1 p2   -> bin POr p1 p2
     PXor p1 p2  -> bin PXor p1 p2
@@ -71,20 +76,17 @@ shrinkProp prop =
     PNor p1 p2  -> bin PNor p1 p2
     PXnor p1 p2 -> bin PXnor p1 p2
   where
-    bin op p1 p2 = terms ++ p1 : p2 :
-                   [ op p1' p2' | p1' <- shrinkProp p1 , p2' <- shrinkProp p2 ]
-      where terms = if isConst p1 || isConst p2 || p1 == p2
-                    then [PTrue, PFalse]
-                    else []
-    isConst p = p == PTrue || p == PFalse
-
+    bin :: (Prop -> Prop -> Prop) -> Prop -> Prop -> [Prop]
+    bin op p1 p2 = [ op p1' p2' | p1' <- boundShrinkProp (pred bound) p1
+                                , p2' <- boundShrinkProp (pred bound) p2 ] ++
+                   [ p1, p2, PFalse, PTrue ]
 instance Arbitrary Prop where
   arbitrary = do
     nVars <- choose (0, 10)
     maxVar <- choose (nVars, 100)
     indexes <- vectorOf nVars (choose (0, maxVar))
     sized $ arbitraryProp indexes
-  shrink = shrinkProp
+  shrink = boundShrinkProp 1
 
 -- An assignment of truth values to variables.  x_i is true <=> i is in the set.
 type Assignment = IntSet

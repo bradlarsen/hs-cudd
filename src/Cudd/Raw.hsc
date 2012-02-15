@@ -1,15 +1,15 @@
-{-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE ForeignFunctionInterface, EmptyDataDecls #-}
 module Cudd.Raw where
 
-import Foreign (Ptr)
+import Foreign (Ptr, FunPtr)
 import Foreign.C.Types (CInt, CUInt, CULong)
 
 #include <cudd.h>
 
 
 
-
-newtype DdManager = DdManager (Ptr DdManager)
+data DdManagerT
+type DdManager = Ptr DdManagerT
 
 foreign import ccall "cudd.h Cudd_Init" cudd_Init
   :: CUInt        -- ^ number of BDD and ADD variables
@@ -27,8 +27,14 @@ cudd_unique_slots = #const CUDD_UNIQUE_SLOTS
 cudd_cache_slots :: CUInt
 cudd_cache_slots = #const CUDD_CACHE_SLOTS
 
-foreign import ccall "cudd.h Cudd_Quit"
-  cudd_Quit :: DdManager -> IO ()
+foreign import ccall "cudd.h Cudd_Quit" cudd_Quit
+  :: DdManager -> IO ()
+
+foreign import ccall "cudd_wrappers.h Cudd_Quit_Wrapper" cudd_Quit_Wrapper
+  :: DdManager -> IO ()
+
+foreign import ccall "cudd_wrappers.h &Cudd_RecursiveDeref_Wrapper" cudd_RecursiveDeref_Wrapper_p
+  :: FunPtr (DdManager -> DdNode -> IO ())
 
 
 
@@ -56,8 +62,8 @@ foreign import ccall "cudd.h Cudd_ClearErrorCode" cudd_ClearErrorCode
 
 
 
-newtype DdNode = DdNode (Ptr DdNode)
-  deriving (Eq, Show)
+data DdNodeT
+type DdNode = Ptr DdNodeT
 
 -- | Returns logic 1.
 foreign import ccall "cudd.h Cudd_ReadOne" cudd_ReadOne
@@ -157,6 +163,9 @@ foreign import ccall "cudd.h Cudd_RecursiveDeref" cudd_RecursiveDeref
   -> DdNode
   -> IO ()
 
+foreign import ccall "cudd.h &Cudd_RecursiveDeref" cudd_RecursiveDeref_p
+  :: FunPtr (DdManager -> DdNode -> IO ())
+
 
 
 
@@ -169,3 +178,20 @@ foreign import ccall "cudd.h Cudd_ReadSize" cudd_ReadSize
 foreign import ccall "cudd.h Cudd_ReadNodeCount" cudd_ReadNodeCount
   :: DdManager
   -> IO CInt
+
+-- | Returns the number of nodes in the given BDD.
+foreign import ccall "cudd.h Cudd_DagSize" cudd_DagSize
+  :: DdNode -> IO CInt
+
+
+foreign import ccall "cudd.h Cudd_GarbageCollectionEnabled"
+  cudd_GarbageCollectionEnabled
+  :: DdManager -> IO CInt
+
+foreign import ccall "cudd.h Cudd_EnableGarbageCollection"
+  cudd_EnableGarbageCollection
+  :: DdManager -> IO ()
+
+foreign import ccall "cudd.h Cudd_DisableGarbageCollection"
+  cudd_DisableGarbageCollection
+  :: DdManager -> IO ()

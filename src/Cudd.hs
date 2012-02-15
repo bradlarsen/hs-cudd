@@ -22,19 +22,22 @@ module Cudd
   , bddRestrict
   , numVars
   , numNodes
+  , bddSize
   , bddToBool
   ) where
 
 import Cudd.Raw
 
 import Foreign (nullPtr)
+import Foreign.ForeignPtr (ForeignPtr, withForeignPtr, newForeignPtr, newForeignPtrEnv)
 
 import Control.Exception (Exception, finally, throw)
 import Control.Monad (when, liftM)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Typeable (Typeable)
+import System.Mem (performGC)
 
-newtype Bdd s = Bdd { unBdd :: DdNode }
+newtype Bdd s = Bdd { unBdd :: ForeignPtr DdNodeT }
   deriving (Eq, Show)
 
 newtype BddIO s a = BddIO { unBddIO :: DdManager -> IO a }
@@ -74,12 +77,13 @@ toCuddException err
 
 
 mkBdd :: DdManager -> DdNode -> IO (Bdd s)
-mkBdd mgr dd@(DdNode ptr) = do
-  when (ptr == nullPtr) $ do
+mkBdd mgr dd = do
+  when (dd == nullPtr) $ do
     err <- cudd_ReadErrorCode mgr
     throw (toCuddException err)
   cudd_Ref dd
-  return $ Bdd dd
+  dd' <- newForeignPtrEnv cudd_RecursiveDeref_Wrapper_p mgr dd
+  return $ Bdd dd'
 
 
 
@@ -89,41 +93,40 @@ newDefaultManager = cudd_Init 0 0 cudd_unique_slots cudd_cache_slots 0
 runBddIO :: (forall s. BddIO s a) -> IO a
 runBddIO f = do
   mgr <- newDefaultManager
-  unBddIO f mgr `finally` cudd_Quit mgr
+  unBddIO f mgr `finally` (performGC >> cudd_Quit_Wrapper mgr)
   
 
 bddTrue :: BddIO s (Bdd s)
-bddTrue = BddIO $ \mgr -> do
-  dd <- cudd_ReadOne mgr
-  mkBdd mgr dd
+bddTrue = BddIO $ \mgr ->
+  cudd_ReadOne mgr >>= mkBdd mgr
 
 bddFalse :: BddIO s (Bdd s)
-bddFalse = BddIO $ \mgr -> do
-  dd <- cudd_ReadLogicZero mgr
-  mkBdd mgr dd
+bddFalse = BddIO $ \mgr ->
+  cudd_ReadLogicZero mgr >>= mkBdd mgr
 
 bddNewVar :: BddIO s (Bdd s)
-bddNewVar = BddIO $ \mgr -> do
-  dd <- cudd_bddNewVar mgr
-  mkBdd mgr dd
+bddNewVar = BddIO $ \mgr ->
+  cudd_bddNewVar mgr >>= mkBdd mgr
 
 bddIthVar :: Int -> BddIO s (Bdd s)
 bddIthVar i
   | i < 0     = error "Cudd.bddIthVar: negative i"
   | otherwise = BddIO $ \mgr -> do
-                  dd <- cudd_bddIthVar mgr (fromIntegral i)
-                  mkBdd mgr dd
+                  cudd_bddIthVar mgr (fromIntegral i) >>= mkBdd mgr
 
 
 binop :: (DdManager -> DdNode -> DdNode -> IO DdNode)
       -> Bdd s -> Bdd s -> BddIO s (Bdd s)
 binop f = \b1 b2 -> BddIO $ \mgr -> do
-  dd <- f mgr (unBdd b1) (unBdd b2)
+  -- Be very careful changing these uses of [withForeignPtr]!  The call to
+  -- [mkBdd] must occur *outside* the [withForeignPtr] block.
+  dd <- withForeignPtr (unBdd b1) $ \pb1 ->
+          withForeignPtr (unBdd b2) $ \pb2 -> f mgr pb1 pb2
   mkBdd mgr dd
 
 bddNot :: Bdd s -> BddIO s (Bdd s)
 bddNot b = BddIO $ \mgr -> do
-  dd <- cudd_Not (unBdd b)
+  dd <- withForeignPtr (unBdd b) $ \pb -> cudd_Not pb
   mkBdd mgr dd
 
 bddAnd :: Bdd s -> Bdd s -> BddIO s (Bdd s)
@@ -152,6 +155,11 @@ numVars = BddIO $ \mgr -> liftM fromIntegral (cudd_ReadSize mgr)
   
 numNodes :: BddIO s Int
 numNodes = BddIO $ \mgr -> liftM fromIntegral (cudd_ReadNodeCount mgr)
+
+bddSize :: Bdd s -> BddIO s Int
+bddSize b = BddIO $ \mgr -> do
+  size <- withForeignPtr (unBdd b) cudd_DagSize
+  return (fromIntegral size)
 
 bddToBool :: Bdd s -> BddIO s Bool
 bddToBool bdd = do
