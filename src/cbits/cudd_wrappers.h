@@ -7,10 +7,4 @@
 DdNode *
 Cudd_Not_Wrapper (DdNode *node);
 
-void
-Cudd_Quit_Wrapper (DdManager *mgr);
-
-void
-Cudd_RecursiveDeref_Wrapper (DdManager *mgr, DdNode *node);
-
 #endif /* CUDD_WRAPPERS_H */

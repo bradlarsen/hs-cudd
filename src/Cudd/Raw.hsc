@@ -30,12 +30,6 @@ cudd_cache_slots = #const CUDD_CACHE_SLOTS
 foreign import ccall "cudd.h Cudd_Quit" cudd_Quit
   :: DdManager -> IO ()
 
-foreign import ccall "cudd_wrappers.h Cudd_Quit_Wrapper" cudd_Quit_Wrapper
-  :: DdManager -> IO ()
-
-foreign import ccall "cudd_wrappers.h &Cudd_RecursiveDeref_Wrapper" cudd_RecursiveDeref_Wrapper_p
-  :: FunPtr (DdManager -> DdNode -> IO ())
-
 
 
 

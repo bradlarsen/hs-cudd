@@ -1,7 +1,26 @@
--- This module provides a higher-level interface to Cudd.Raw.  In particular,
--- this interface hides the DdManager type; a single manager is implicit in
--- every BddIO computation.  This interface uses a type of rank 2 to ensure
--- that no reference to a manager escapes.
+-- This module provides a higher-level interface to Cudd.Raw.  This
+-- higher-level interface exposes two types:
+-- 
+--     * [BddIO s a], the type of BDD computations with state thread [s] and
+--       return type [a]
+--     * [Bdd s], the type of BDDs with state thread [s]
+-- 
+-- The only way to run a computation of type [BddIO s a] is to use the
+-- rank-2 polymorphic function [runBddIO :: (forall s. BddIO s a) -> IO a]
+-- The type of [runBddIO] ensures that no references to BDDs escape, which in
+-- turn allows prompt, safe deallocation of the resources used by a BDD
+-- computation.
+--
+-- This code will surely only work right with GHC >= 6.10.2, which
+-- apparently guarantees that finalizers will be run promptly.  Each
+-- [BddIO s a] computation, when run, creates a new CUDD manager, which
+-- must not be freed until all its BDDs have been returned to it.  Each
+-- [Bdd s] value is assocated with a finalizer that calls
+-- [Cudd_RecursiveDeref].  To ensure that all finalizer for [Bdd s]
+-- values have been finalized before freeing the CUDD manager of the
+-- computation, [System.Mem.performGC] is called before calling
+-- [Cudd_Quit].  This is dodgy but seems to do the right thing in
+-- recent versions of GHC.
 {-# LANGUAGE Rank2Types, DeriveDataTypeable #-}
 module Cudd
   ( BddIO
@@ -82,7 +101,7 @@ mkBdd mgr dd = do
     err <- cudd_ReadErrorCode mgr
     throw (toCuddException err)
   cudd_Ref dd
-  dd' <- newForeignPtrEnv cudd_RecursiveDeref_Wrapper_p mgr dd
+  dd' <- newForeignPtrEnv cudd_RecursiveDeref_p mgr dd
   return $ Bdd dd'
 
 
@@ -93,7 +112,7 @@ newDefaultManager = cudd_Init 0 0 cudd_unique_slots cudd_cache_slots 0
 runBddIO :: (forall s. BddIO s a) -> IO a
 runBddIO f = do
   mgr <- newDefaultManager
-  unBddIO f mgr `finally` (performGC >> cudd_Quit_Wrapper mgr)
+  unBddIO f mgr `finally` (performGC >> cudd_Quit mgr)
   
 
 bddTrue :: BddIO s (Bdd s)

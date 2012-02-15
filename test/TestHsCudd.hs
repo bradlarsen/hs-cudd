@@ -62,21 +62,6 @@ prop_projectionFunSize = forAll (choose (0, 10000)) $ \idx -> monadicIO $ do
             return (idxBddSize == 2 && size == 2)
     assert ok
 
-prop_projectionDoesNotChangeNodes :: Prop.Prop -> Property
-prop_projectionDoesNotChangeNodes prop = monadicIO $ do
-  ok <- run $ runBddIO $ do
-          propBdd <- synthesizeBdd prop
-          liftIO performGC
-          propBddSize <- bddSize propBdd
-          size <- numNodes
-          ok <- andForM (vars prop) $ \i -> do
-                  iBdd <- bddIthVar i
-                  size' <- numNodes
-                  propBddSize' <- bddSize propBdd
-                  return (size == size' && propBddSize == propBddSize')
-          return ok
-  assert ok
-
 
 main :: IO ()
 main = do
@@ -90,5 +75,4 @@ main = do
       -- qc = verboseCheckWith conf
   qc prop_symbolicEvaluation
   qc prop_projectionFunSize
-  qc prop_projectionDoesNotChangeNodes
   return ()
