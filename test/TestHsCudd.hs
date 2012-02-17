@@ -3,8 +3,7 @@ module Main where
 import Cudd
 import Prop
 
-import Control.Monad (forM_, forM)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad (forM_, forM, liftM)
 import System.IO (stderr)
 import Text.Printf (hPrintf)
 
@@ -13,7 +12,7 @@ import Test.QuickCheck (Property, quickCheckWith, stdArgs,
                         verboseCheckWith, (==>), forAll, choose)
 import Test.QuickCheck.Monadic (monadicIO, assert, run)
 
-import Test.HUnit (Test (TestCase, TestList), assertEqual, assertBool)
+import Test.HUnit (Test (TestCase, TestList), assertBool)
 import Test.HUnit.Text (runTestTT)
 
 import System.Mem (performGC)
@@ -21,18 +20,26 @@ import System.Mem (performGC)
 
 unitTests :: Test
 unitTests = TestList [
-    TestCase $ runBddIO $ do
-      true    <- bddTrue
-      false   <- bddFalse
+    TestCase $ do
+      mgr     <- newMgr
+      true    <- bddTrue mgr
+      false   <- bddFalse mgr
       true'   <- bddNot true
       false'  <- bddNot false
       true''  <- bddNot true'
       false'' <- bddNot false'
-      liftIO $ assertBool "true /= false" (true /= false)
-      liftIO $ assertEqual "~ true == false" true' false
-      liftIO $ assertEqual "~ false == true" false' true
-      liftIO $ assertEqual "~ ~ false == false" false'' false
-      liftIO $ assertEqual "~ ~ true == true" true'' true
+      assertBool "true /= false" =<< liftM not (bddEqual true false)
+      assertBool "~ true == false" =<< bddEqual true' false
+      assertBool "~ false == true" =<< bddEqual false' true
+      assertBool "~ ~ false == false" =<< bddEqual false'' false
+      assertBool "~ ~ true == true" =<< bddEqual true'' true
+  , TestCase $ do
+      mgr    <- newMgr
+      true   <- bddTrue mgr
+      false  <- bddFalse mgr
+      result <- bddRestrict true false
+      assertBool "result /= true" =<< liftM not (bddEqual true result)
+      assertBool "result == false" =<< bddEqual false result
   ]
 
 
@@ -45,22 +52,26 @@ andForM (v : vs) f = do
 
 prop_symbolicEvaluation :: Prop.Prop -> Property
 prop_symbolicEvaluation prop = monadicIO $ do
-  ok <- run $ runBddIO $ do
-          propBdd <- synthesizeBdd prop
+  ok <- run $ do
+          mgr     <- newMgr
+          propBdd <- synthesizeBdd mgr prop
           andForM (assignments $ vars prop) $ \ass -> do
             let truthiness = eval ass prop
-            bddTruthiness <- evalBdd ass propBdd
+            bddTruthiness <- evalBdd ass mgr propBdd
             return (truthiness == bddTruthiness)
   assert ok
+  run performGC
 
 prop_projectionFunSize :: Property
 prop_projectionFunSize = forAll (choose (0, 10000)) $ \idx -> monadicIO $ do
-    ok <- run $ runBddIO $ do
-            idxBdd <- bddIthVar idx
+    ok <- run $ do
+            mgr <- newMgr
+            idxBdd <- bddIthVar mgr idx
             idxBddSize <- bddSize idxBdd
-            size <- numNodes
+            size <- numNodes mgr
             return (idxBddSize == 2 && size == 2)
     assert ok
+    run performGC
 
 
 main :: IO ()
