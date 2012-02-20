@@ -4,12 +4,14 @@ import Cudd
 import Prop
 
 import Control.Monad (forM_, forM, liftM)
+import Data.Maybe (fromJust, isJust)
 import System.IO (stderr)
 import Text.Printf (hPrintf)
 
 import Test.QuickCheck (Property, quickCheckWith, stdArgs,
                         Args (maxSuccess, maxDiscard), Testable,
-                        verboseCheckWith, (==>), forAll, choose)
+                        verboseCheckWith, (==>), forAll, choose,
+                        Positive (Positive))
 import Test.QuickCheck.Monadic (monadicIO, assert, run)
 
 import Test.HUnit (Test (TestCase, TestList), assertBool)
@@ -63,7 +65,7 @@ prop_symbolicEvaluation prop = monadicIO $ do
   run performGC
 
 prop_projectionFunSize :: Property
-prop_projectionFunSize = forAll (choose (0, 10000)) $ \idx -> monadicIO $ do
+prop_projectionFunSize = forAll (choose (0, 100000)) $ \idx -> monadicIO $ do
     ok <- run $ do
             mgr <- newMgr
             idxBdd <- bddIthVar mgr idx
@@ -73,6 +75,19 @@ prop_projectionFunSize = forAll (choose (0, 10000)) $ \idx -> monadicIO $ do
     assert ok
     run performGC
 
+prop_existAbstract :: Prop.Prop -> Property
+prop_existAbstract prop = let mv = maxVar prop in isJust mv ==>
+  forAll (choose (0, fromJust mv)) $ \var -> monadicIO $ do
+    ok <- run $ do
+            mgr <- newMgr
+            p   <- synthesizeBdd mgr prop
+            v   <- bddIthVar mgr var
+            ex  <- bddExistAbstract p v
+            ex' <- do pv  <- bddRestrict p v
+                      pv' <- bddRestrict p =<< bddNot v
+                      bddOr pv pv'
+            bddEqual ex ex'
+    assert ok
 
 main :: IO ()
 main = do
@@ -86,4 +101,5 @@ main = do
       -- qc = verboseCheckWith conf
   qc prop_symbolicEvaluation
   qc prop_projectionFunSize
+  qc prop_existAbstract
   return ()

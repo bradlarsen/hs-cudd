@@ -15,6 +15,9 @@ void cw_quit (Mgr *mgr);
 
 typedef struct Bdd Bdd;
 void cw_bdd_destroy (Bdd *bdd);
+/* IDEA: we could add a cw_bdd_deref operation that dereferences the contained
+ * DdNode, then have the finalizer simply free the Bdd wrapper struct.
+ */
 
 Mgr * cw_bdd_get_manager (Bdd *b);
 
@@ -41,6 +44,7 @@ Bdd * cw_bdd_nor (Bdd *b1, Bdd *b2);
 Bdd * cw_bdd_xnor (Bdd *b1, Bdd *b2);
 Bdd * cw_bdd_compose (Bdd *b1, Bdd *b2, unsigned v);
 Bdd * cw_bdd_restrict (Bdd *b1, Bdd *b2);
+Bdd * cw_bdd_exist_abstract (Bdd *b1, Bdd *b2);
 
 unsigned cw_num_bdd_vars (Mgr *mgr);
 unsigned cw_num_nodes (Mgr *mgr);

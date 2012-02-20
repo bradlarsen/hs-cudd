@@ -79,6 +79,8 @@ foreign import ccall "cudd_wrappers.h cw_bdd_compose" cw_bdd_compose
   :: BddP -> BddP -> CUInt -> IO BddP
 foreign import ccall "cudd_wrappers.h cw_bdd_restrict" cw_bdd_restrict
   :: BddP -> BddP -> IO BddP
+foreign import ccall "cudd_wrappers.h cw_bdd_exist_abstract" cw_bdd_exist_abstract
+  :: BddP -> BddP -> IO BddP
 
 foreign import ccall "cudd_wrappers.h cw_num_bdd_vars" cw_num_bdd_vars
   :: MgrP -> IO CUInt

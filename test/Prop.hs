@@ -2,6 +2,7 @@
 module Prop
   ( Prop (..)
   , vars
+  , maxVar
   , Assignment
   , assignments
   , eval
@@ -43,6 +44,11 @@ vars' (PXnor p1 p2) = union (vars' p1) (vars' p2)
 
 vars :: Prop -> [Int]
 vars = toList . vars'
+
+maxVar :: Prop -> Maybe Int
+maxVar prop = case vars prop of
+                [] -> Nothing
+                vs -> Just (maximum vs)
 
 arbitraryProp :: [Int] -> Int -> Gen Prop
 arbitraryProp [] = const $ elements [PFalse, PTrue]

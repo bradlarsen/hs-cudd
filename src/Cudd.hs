@@ -16,6 +16,7 @@ module Cudd
   , bddNor
   , bddXnor
   , bddRestrict
+  , bddExistAbstract
   , numVars
   , numNodes
   , bddSize
@@ -144,6 +145,9 @@ bddXnor = binop cw_bdd_xnor
 
 bddRestrict :: Bdd -> Bdd -> IO Bdd
 bddRestrict = binop cw_bdd_restrict
+
+bddExistAbstract :: Bdd -> Bdd -> IO Bdd
+bddExistAbstract = binop cw_bdd_exist_abstract
 
 numVars :: Mgr -> IO Int
 numVars mgr = liftM fromIntegral $ withForeignPtr mgr cw_num_bdd_vars
