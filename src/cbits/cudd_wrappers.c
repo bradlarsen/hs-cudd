@@ -167,6 +167,7 @@ bdd_binop (cw_bdd_nor, Cudd_bddNor)
 bdd_binop (cw_bdd_xnor, Cudd_bddXnor)
 bdd_binop (cw_bdd_restrict, Cudd_bddRestrict)
 bdd_binop (cw_bdd_exist_abstract, Cudd_bddExistAbstract)
+bdd_binop (cw_bdd_univ_abstract, Cudd_bddUnivAbstract)
 
 Bdd * cw_bdd_compose (Bdd *b1, Bdd *b2, unsigned v)
 {

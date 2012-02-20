@@ -45,6 +45,7 @@ Bdd * cw_bdd_xnor (Bdd *b1, Bdd *b2);
 Bdd * cw_bdd_compose (Bdd *b1, Bdd *b2, unsigned v);
 Bdd * cw_bdd_restrict (Bdd *b1, Bdd *b2);
 Bdd * cw_bdd_exist_abstract (Bdd *b1, Bdd *b2);
+Bdd * cw_bdd_univ_abstract (Bdd *b1, Bdd *b2);
 
 unsigned cw_num_bdd_vars (Mgr *mgr);
 unsigned cw_num_nodes (Mgr *mgr);
