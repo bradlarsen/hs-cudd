@@ -1,0 +1,108 @@
+-- N Queens using binary decision diagrams
+--
+-- The encoding uses a single Boolean variable for each of N^2 cells of the
+-- board.
+module Main (main) where
+
+import Cudd
+import Prop
+
+import Control.Applicative ((<$>), (<*>))
+import Control.Monad ((>=>), (<=<), forM_, forM, foldM, guard)
+import System.Environment (getArgs, getProgName)
+import System.Exit (exitFailure)
+import System.IO (stderr)
+import Text.Printf (printf, hPrintf)
+
+modelNQueens :: Int -> Prop
+modelNQueens n = conjoin [atLeastOnePerRow, nonAttacking]
+  where
+    atLeastOnePerRow = conjoin $ do
+      i <- [0..n-1]
+      return $ disjoin [ var (i, j) | j <- [0..n-1] ]
+
+    nonAttacking = conjoin $ do
+      i <- [0..n-1]
+      j <- [0..n-1]
+      let notInRow = conjoin [ nvar (i, j') | j' <- [0..n-1], j /= j' ]
+      let notInCol = conjoin [ nvar (i', j) | i' <- [0..n-1], i /= i' ]
+      let notInDiag = conjoin $ do
+                        d  <- [1..n-1]
+                        d1 <- [d, -d]
+                        d2 <- [d, -d]
+                        let c = (i + d1, j + d2)
+                        guard (inBounds c)
+                        return (nvar c)
+      return (nvar (i, j) `POr` (notInRow `PAnd` notInCol `PAnd` notInDiag))
+
+    disjoin = foldr POr PFalse
+    conjoin = foldr PAnd PTrue
+
+    nvar = PNot . PVar . cellToIdx
+    var = PVar . cellToIdx
+
+    inBounds (i, j) = 0 <= i && i < n && 0 <= j && j < n
+    cellToIdx (i, j) = n * i + j
+    -- idxToCell idx = idx `divMod` n
+
+-- This sequence is OES A000170, the number of ways of placing n non-attacking
+-- queens on an nxn board.
+expectedNumSolutions :: [(Int, Double)]
+expectedNumSolutions = [
+    (1, 1)
+  , (2, 0)
+  , (3, 0)
+  , (4, 2)
+  , (5, 10)
+  , (6, 4)
+  , (7, 40)
+  , (8, 92)
+  , (9, 352)
+  , (10, 724)
+  , (11, 2680)
+  , (12, 14200)
+  , (13, 73712)
+  , (14, 365596)
+  , (15, 2279184)
+  , (16, 14772512)
+  , (17, 95815104)
+  , (18, 666090624)
+  , (19, 4968057848)
+  , (20, 39029188884)
+  , (21, 314666222712)
+  , (22, 2691008701644)
+  , (23, 24233937684440)
+  , (24, 227514171973736)
+  , (25, 2207893435808352)
+  , (26, 22317699616364044)
+  ]
+
+usageAndQuit :: IO a
+usageAndQuit = do
+  hPrintf stderr "usage: %s N\n" =<< getProgName
+  exitFailure
+
+getConfig :: IO Int
+getConfig = do
+  args <- getArgs
+  case args of
+    [n] -> case reads n of
+             [(n, "")] | n > 0 -> return n
+             _                 -> usageAndQuit
+    _   -> usageAndQuit
+
+main :: IO ()
+main = do
+  n <- getConfig
+  printf "n is %d\n" n
+
+  let queensProp = modelNQueens n
+  mgr <- newMgr
+  queensBdd <- synthesizeBdd mgr queensProp
+  printf "queensBdd uses %d nodes\n" =<< bddSize queensBdd
+  numSolutions <- bddCountMinterms queensBdd
+  printf "%f solutions\n" numSolutions
+  case lookup n expectedNumSolutions of
+    Just ns | numSolutions /= ns -> do printf "error: expected %f solutions!\n" ns
+                                       exitFailure
+    _                            -> return ()

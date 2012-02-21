@@ -2,6 +2,7 @@
 module Prop
   ( Prop (..)
   , vars
+  , maxVar
   , Assignment
   , assignments
   , eval
@@ -43,6 +44,11 @@ vars' (PXnor p1 p2) = union (vars' p1) (vars' p2)
 
 vars :: Prop -> [Int]
 vars = toList . vars'
+
+maxVar :: Prop -> Maybe Int
+maxVar prop = case vars prop of
+                [] -> Nothing
+                vs -> Just (maximum vs)
 
 arbitraryProp :: [Int] -> Int -> Gen Prop
 arbitraryProp [] = const $ elements [PFalse, PTrue]
@@ -113,11 +119,11 @@ eval assigns = eval'
             PNor p1 p2  -> not (eval' p1) && not (eval' p2)
             PXnor p1 p2 -> eval' p1 == eval' p2
 
-evalBdd :: Assignment -> Cudd.Bdd s -> Cudd.BddIO s Bool
-evalBdd assigns bdd = do
-  numVars  <- Cudd.numVars
-  true     <- Cudd.bddTrue
-  assigns' <- foldM (\b i -> do i' <- Cudd.bddIthVar i
+evalBdd :: Assignment -> Cudd.Mgr -> Cudd.Bdd -> IO Bool
+evalBdd assigns mgr bdd = do
+  numVars  <- Cudd.numVars mgr
+  true     <- Cudd.bddTrue mgr
+  assigns' <- foldM (\b i -> do i' <- Cudd.bddIthVar mgr i
                                 if member i assigns
                                    then Cudd.bddAnd b i'
                                    else Cudd.bddAnd b =<< Cudd.bddNot i')
@@ -126,19 +132,21 @@ evalBdd assigns bdd = do
   Cudd.bddToBool res
 
 -- | Synthesize the sentence of propositional logic into a BDD.
-synthesizeBdd :: Prop -> Cudd.BddIO s (Cudd.Bdd s)
-synthesizeBdd prop =
-  case prop of
-    PFalse      -> Cudd.bddFalse
-    PTrue       -> Cudd.bddTrue
-    PVar i      -> Cudd.bddIthVar i
-    PNot p      -> Cudd.bddNot =<< synthesizeBdd p
-    PAnd p1 p2  -> bin Cudd.bddAnd p1 p2
-    POr p1 p2   -> bin Cudd.bddOr p1 p2
-    PXor p1 p2  -> bin Cudd.bddXor p1 p2
-    PNand p1 p2 -> bin Cudd.bddNand p1 p2
-    PNor p1 p2  -> bin Cudd.bddNor p1 p2
-    PXnor p1 p2 -> bin Cudd.bddXnor p1 p2
-  where bin f p1 p2 = do p1' <- synthesizeBdd p1
-                         p2' <- synthesizeBdd p2
-                         f p1' p2'
+synthesizeBdd :: Cudd.Mgr -> Prop -> IO Cudd.Bdd
+synthesizeBdd mgr = synthesizeBdd'
+  where
+    synthesizeBdd' prop =
+      case prop of
+        PFalse      -> Cudd.bddFalse mgr
+        PTrue       -> Cudd.bddTrue mgr
+        PVar i      -> Cudd.bddIthVar mgr i
+        PNot p      -> Cudd.bddNot =<< synthesizeBdd' p
+        PAnd p1 p2  -> bin Cudd.bddAnd p1 p2
+        POr p1 p2   -> bin Cudd.bddOr p1 p2
+        PXor p1 p2  -> bin Cudd.bddXor p1 p2
+        PNand p1 p2 -> bin Cudd.bddNand p1 p2
+        PNor p1 p2  -> bin Cudd.bddNor p1 p2
+        PXnor p1 p2 -> bin Cudd.bddXnor p1 p2
+    bin f p1 p2 = do p1' <- synthesizeBdd' p1
+                     p2' <- synthesizeBdd' p2
+                     f p1' p2'
