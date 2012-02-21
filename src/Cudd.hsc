@@ -1,9 +1,46 @@
 {-# LANGUAGE ForeignFunctionInterface, EmptyDataDecls, DeriveDataTypeable #-}
+{-# OPTIONS -Wall -fno-warn-name-shadowing #-}
 module Cudd
-  ( CuddException (..)
-  , Mgr
+  ( Mgr
   , newMgr
+  , numVars
+  , numNodes
+
+  , CuddException (..)
+
+  , enableReorderingReporting
+  , disableReorderingReporting
+  , reorderingReporting
+  , enableDynamicReordering
+  , disableDynamicReordering
+  , Cudd_ReorderingType
+  , cudd_reorder_same
+  , cudd_reorder_none
+  , cudd_reorder_random
+  , cudd_reorder_random_pivot
+  , cudd_reorder_sift
+  , cudd_reorder_sift_converge
+  , cudd_reorder_symm_sift
+  , cudd_reorder_symm_sift_conv
+  , cudd_reorder_window2
+  , cudd_reorder_window3
+  , cudd_reorder_window4
+  , cudd_reorder_window2_conv
+  , cudd_reorder_window3_conv
+  , cudd_reorder_window4_conv
+  , cudd_reorder_group_sift
+  , cudd_reorder_group_sift_conv
+  , cudd_reorder_annealing
+  , cudd_reorder_genetic
+  , cudd_reorder_linear
+  , cudd_reorder_linear_converge
+  , cudd_reorder_lazy_sift
+  , cudd_reorder_exac
+
   , Bdd
+  , bddNumNodes
+  , bddToBool
+
   , bddEqual
   , bddTrue
   , bddFalse
@@ -18,23 +55,20 @@ module Cudd
   , bddRestrict
   , bddExistAbstract
   , bddUnivAbstract
+
   , bddCountMinterms
   , VarAssign (..)
   , bddPickOneMinterm
-  , numVars
-  , numNodes
-  , bddNumNodes
-  , bddToBool
   ) where
 
 import Foreign (nullPtr, Ptr, FunPtr)
-import Foreign.C.Types (CInt, CUInt, CULong, CDouble, CChar)
+import Foreign.C.Types (CInt, CUInt, CDouble, CChar)
 import Foreign.ForeignPtr (ForeignPtr, newForeignPtr, withForeignPtr)
 import Foreign.Marshal.Alloc (free)
 import Foreign.Marshal.Array (mallocArray, peekArray)
 
 import Control.Applicative ((<$>))
-import Control.Exception (Exception, finally, throw, bracket)
+import Control.Exception (Exception, throw, bracket)
 import Control.Monad ((>=>), when, liftM, forM)
 import Data.Typeable (Typeable)
 
@@ -103,6 +137,64 @@ foreign import ccall "cudd_wrappers.h cw_num_nodes" cw_num_nodes
   :: MgrP -> IO CUInt
 numNodes :: Mgr -> IO Int
 numNodes mgr = fromIntegral <$> withMgr mgr cw_num_nodes
+
+
+newtype Cudd_ReorderingType = Cudd_ReorderingType CInt
+  deriving (Eq, Ord)
+#{enum Cudd_ReorderingType, Cudd_ReorderingType
+ , cudd_reorder_same            = CUDD_REORDER_SAME
+ , cudd_reorder_none            = CUDD_REORDER_NONE
+ , cudd_reorder_random          = CUDD_REORDER_RANDOM
+ , cudd_reorder_random_pivot    = CUDD_REORDER_RANDOM_PIVOT
+ , cudd_reorder_sift            = CUDD_REORDER_SIFT
+ , cudd_reorder_sift_converge   = CUDD_REORDER_SIFT_CONVERGE
+ , cudd_reorder_symm_sift       = CUDD_REORDER_SYMM_SIFT
+ , cudd_reorder_symm_sift_conv  = CUDD_REORDER_SYMM_SIFT_CONV
+ , cudd_reorder_window2         = CUDD_REORDER_WINDOW2
+ , cudd_reorder_window3         = CUDD_REORDER_WINDOW3
+ , cudd_reorder_window4         = CUDD_REORDER_WINDOW4
+ , cudd_reorder_window2_conv    = CUDD_REORDER_WINDOW2_CONV
+ , cudd_reorder_window3_conv    = CUDD_REORDER_WINDOW3_CONV
+ , cudd_reorder_window4_conv    = CUDD_REORDER_WINDOW4_CONV
+ , cudd_reorder_group_sift      = CUDD_REORDER_GROUP_SIFT
+ , cudd_reorder_group_sift_conv = CUDD_REORDER_GROUP_SIFT_CONV
+ , cudd_reorder_annealing       = CUDD_REORDER_ANNEALING
+ , cudd_reorder_genetic         = CUDD_REORDER_GENETIC
+ , cudd_reorder_linear          = CUDD_REORDER_LINEAR
+ , cudd_reorder_linear_converge = CUDD_REORDER_LINEAR_CONVERGE
+ , cudd_reorder_lazy_sift       = CUDD_REORDER_LAZY_SIFT
+ , cudd_reorder_exac            = CUDD_REORDER_EXACT
+ }
+
+foreign import ccall "cudd_wrappers.h cw_enable_reordering_reporting" cw_enable_reordering_reporting
+  :: MgrP -> IO CInt
+enableReorderingReporting :: Mgr -> IO ()
+enableReorderingReporting mgr = withMgr mgr $ \mgr -> do
+  rc <- cw_enable_reordering_reporting mgr
+  when (rc /= 1) $ error "Cudd.enableReorderingReporting: call failed"
+
+foreign import ccall "cudd_wrappers.h cw_disable_reordering_reporting" cw_disable_reordering_reporting
+  :: MgrP -> IO CInt
+disableReorderingReporting :: Mgr -> IO ()
+disableReorderingReporting mgr = withMgr mgr $ \mgr -> do
+  rc <- cw_disable_reordering_reporting mgr
+  when (rc /= 1) $ error "Cudd.disableReorderingReporting: call failed"
+
+foreign import ccall "cudd_wrappers.h cw_reordering_reporting" cw_reordering_reporting
+  :: MgrP -> IO CInt
+reorderingReporting :: Mgr -> IO Bool
+reorderingReporting mgr = cintToBool <$> withMgr mgr cw_reordering_reporting
+
+foreign import ccall "cudd_wrappers.h cw_autodyn_enable" cw_autodyn_enable
+  :: MgrP -> Cudd_ReorderingType -> IO ()
+enableDynamicReordering :: Mgr -> Cudd_ReorderingType -> IO ()
+enableDynamicReordering mgr method = withMgr mgr $ \mgr -> do
+  cw_autodyn_enable mgr method
+
+foreign import ccall "cudd_wrappers.h cw_autodyn_disable" cw_autodyn_disable
+  :: MgrP -> IO ()
+disableDynamicReordering :: Mgr -> IO ()
+disableDynamicReordering mgr = withMgr mgr cw_autodyn_disable
 
 
 
@@ -184,7 +276,7 @@ toCuddException err
   | err == cudd_too_many_nodes   = CuddTooManyNodes
   | err == cudd_max_mem_exceeded = CuddMaxMemExceeded
   | err == cudd_timeout_expired  = CuddTimeoutExpired
-  | err == cudd_internal_error   = CuddInvalidArg
+  | err == cudd_invalid_arg      = CuddInvalidArg
   | err == cudd_internal_error   = CuddInternalError
   | otherwise = error "Cudd.Raw.toCuddException: bad Cudd_ErrorType!"
 
@@ -324,3 +416,8 @@ bddToBool bdd = do
      else do isFalse <- withBdd bdd cw_bdd_is_logic_zero
              if isFalse /= 0 then return False
                 else error "Cudd.bddToBool: non-terminal value"
+
+
+cintToBool :: CInt -> Bool
+cintToBool 0 = False
+cintToBool _ = True

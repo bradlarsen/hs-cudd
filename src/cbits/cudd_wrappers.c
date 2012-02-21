@@ -47,6 +47,36 @@ int cw_add_hook (Mgr *mgr, DD_HFP hookFun, Cudd_HookType hookType)
     return Cudd_AddHook (mgr_ddmanager (mgr), hookFun, hookType);
 }
 
+int cw_enable_reordering_reporting (Mgr *mgr)
+{
+    assert (mgr_good (mgr));
+    return Cudd_EnableReorderingReporting (mgr_ddmanager (mgr));
+}
+
+int cw_disable_reordering_reporting (Mgr *mgr)
+{
+    assert (mgr_good (mgr));
+    return Cudd_DisableReorderingReporting (mgr_ddmanager (mgr));
+}
+
+int cw_reordering_reporting (Mgr *mgr)
+{
+    assert (mgr_good (mgr));
+    return Cudd_ReorderingReporting (mgr_ddmanager (mgr));
+}
+
+void cw_autodyn_enable (Mgr *mgr, Cudd_ReorderingType method)
+{
+    assert (mgr_good (mgr));
+    Cudd_AutodynEnable (mgr_ddmanager (mgr), method);
+}
+
+void cw_autodyn_disable (Mgr *mgr)
+{
+    assert (mgr_good (mgr));
+    Cudd_AutodynDisable (mgr_ddmanager (mgr));
+}
+
 
 struct Bdd
 {

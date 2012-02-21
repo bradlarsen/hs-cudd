@@ -105,10 +105,10 @@ getConfig = do
 main :: IO ()
 main = do
   n <- getConfig
-  printf "n is %d\n" n
-
   let queensProp = modelNQueens n
   mgr <- newMgr
+  enableReorderingReporting mgr
+  enableDynamicReordering mgr cudd_reorder_window3
   queensBdd <- synthesizeBdd mgr queensProp
   printf "queensBdd uses %d nodes\n" =<< bddNumNodes queensBdd
   numSolutions <- bddCountMinterms queensBdd
@@ -119,6 +119,6 @@ main = do
     Just s  -> do printf "one solution:\n"
                   printAssignment n s
   case lookup n expectedNumSolutions of
-    Just ns | numSolutions /= ns -> do printf "error: expected %f solutions!\n" ns
+    Just ns | numSolutions /= ns -> do printf "error: expected %f solutions\n" ns
                                        exitFailure
     _                            -> return ()

@@ -15,6 +15,13 @@ void cw_quit (Mgr *mgr);
 
 int cw_add_hook (Mgr *mgr, DD_HFP hookFun, Cudd_HookType hookType);
 
+int cw_enable_reordering_reporting (Mgr *mgr);
+int cw_disable_reordering_reporting (Mgr *mgr);
+int cw_reordering_reporting (Mgr *mgr);
+
+void cw_autodyn_enable (Mgr *mgr, Cudd_ReorderingType method);
+void cw_autodyn_disable (Mgr *mgr);
+
 typedef struct Bdd Bdd;
 void cw_bdd_destroy (Bdd *bdd);
 /* IDEA: we could add a cw_bdd_deref operation that dereferences the contained
