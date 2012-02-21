@@ -15,28 +15,26 @@ import System.IO (stderr)
 import Text.Printf (printf, hPrintf)
 
 modelNQueens :: Int -> Prop
-modelNQueens n = conjoin [atLeastOnePerRow, nonAttacking]
+modelNQueens n =
+    conjoin ([ atLeastOneInRow i | i <- [0..n-1] ] ++
+             [ safe (i, j) | i <- [0..n-1], j <- [0..n-1] ])
   where
-    atLeastOnePerRow = conjoin $ do
-      i <- [0..n-1]
-      return $ disjoin [ var (i, j) | j <- [0..n-1] ]
+    atLeastOneInRow i = conjoin [ disjoin [ var (i, j) | j <- [0..n-1] ] ]
 
-    nonAttacking = conjoin $ do
-      i <- [0..n-1]
-      j <- [0..n-1]
-      let notInRow = conjoin [ nvar (i, j') | j' <- [0..n-1], j /= j' ]
-      let notInCol = conjoin [ nvar (i', j) | i' <- [0..n-1], i /= i' ]
-      let notInDiag = conjoin $ do
-                        d  <- [1..n-1]
-                        d1 <- [d, -d]
-                        d2 <- [d, -d]
-                        let c = (i + d1, j + d2)
-                        guard (inBounds c)
-                        return (nvar c)
-      return (nvar (i, j) `POr` (notInRow `PAnd` notInCol `PAnd` notInDiag))
+    safe (i, j) =
+      let impl p = nvar (i, j) `POr` p in
+      let notInRow = conjoin [ impl $ nvar (i, j') | j' <- [0..n-1], j /= j' ] in
+      let notInCol = conjoin [ impl $ nvar (i', j) | i' <- [0..n-1], i /= i' ] in
+      let notInUpRight = conjoin [ impl $ nvar c | d <- [1..n-1]
+                                                 , let c = (i - d, j + d)
+                                                 , inBounds c ] in
+      let notInDownRight = conjoin [ impl $ nvar c | d <- [1..n-1]
+                                                   , let c = (i + d, j + d)
+                                                   , inBounds c ] in
+      conjoin [notInRow, notInCol, notInUpRight, notInDownRight]
 
-    disjoin = foldr POr PFalse
-    conjoin = foldr PAnd PTrue
+    disjoin = foldl POr PFalse
+    conjoin = foldl PAnd PTrue
 
     nvar = PNot . PVar . cellToIdx
     var = PVar . cellToIdx
