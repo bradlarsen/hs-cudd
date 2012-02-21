@@ -69,9 +69,9 @@ prop_projectionFunSize = forAll (choose (0, 100000)) $ \idx -> monadicIO $ do
     ok <- run $ do
             mgr <- newMgr
             idxBdd <- bddIthVar mgr idx
-            idxBddSize <- bddSize idxBdd
+            idxBddNumNodes <- bddNumNodes idxBdd
             size <- numNodes mgr
-            return (idxBddSize == 2 && size == 2)
+            return (idxBddNumNodes == 2 && size == 2)
     assert ok
     run performGC
 

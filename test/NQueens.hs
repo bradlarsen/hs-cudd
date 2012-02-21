@@ -110,7 +110,7 @@ main = do
   let queensProp = modelNQueens n
   mgr <- newMgr
   queensBdd <- synthesizeBdd mgr queensProp
-  printf "queensBdd uses %d nodes\n" =<< bddSize queensBdd
+  printf "queensBdd uses %d nodes\n" =<< bddNumNodes queensBdd
   numSolutions <- bddCountMinterms queensBdd
   printf "%f solutions\n" numSolutions
   mOneSolution <- bddPickOneMinterm queensBdd

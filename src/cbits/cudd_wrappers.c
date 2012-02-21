@@ -21,6 +21,7 @@ Mgr * cw_init ()
     assert (mgr);
     mgr->manager = ddmgr;
     mgr->ref_count = 1;
+    assert (mgr_good (mgr));
     return mgr;
 }
 

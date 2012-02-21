@@ -24,13 +24,10 @@ Cabal-version:       >=1.8
 
 Library
   Hs-Source-Dirs:    src
-  Exposed-modules:   Cudd.Raw
-                     Cudd
-
-  Build-depends:     base
-
+  Exposed-modules:   Cudd
   -- Modules not exported by this package.
   -- Other-modules:
+  Build-depends:     base
 
   Build-tools:       hsc2hs
   cc-options:        -DHAVE_IEEE_754 -DSIZEOF_VOID_P=8 -DSIZEOF_LONG=8
