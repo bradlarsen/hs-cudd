@@ -47,6 +47,8 @@ Bdd * cw_bdd_restrict (Bdd *b1, Bdd *b2);
 Bdd * cw_bdd_exist_abstract (Bdd *b1, Bdd *b2);
 Bdd * cw_bdd_univ_abstract (Bdd *b1, Bdd *b2);
 
+double cw_bdd_count_minterm (Bdd *b);
+
 unsigned cw_num_bdd_vars (Mgr *mgr);
 unsigned cw_num_nodes (Mgr *mgr);
 unsigned cw_bdd_size (Bdd *b);

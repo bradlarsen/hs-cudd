@@ -144,5 +144,9 @@ Library
 Executable test-hs-cudd
   Hs-Source-Dirs:    test
   Main-is:           TestHsCudd.hs
+  Build-depends:     base, hs-cudd, HUnit, QuickCheck, containers
 
-  Build-depends:     base, transformers, hs-cudd, HUnit, QuickCheck, containers
+Executable test-hs-cudd-nqueens
+  Hs-Source-Dirs:    test
+  Main-is:           NQueens.hs
+  Build-depends:     base, hs-cudd, QuickCheck, containers

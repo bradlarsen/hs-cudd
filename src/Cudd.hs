@@ -18,6 +18,7 @@ module Cudd
   , bddRestrict
   , bddExistAbstract
   , bddUnivAbstract
+  , bddCountMinterms
   , numVars
   , numNodes
   , bddSize
@@ -152,6 +153,13 @@ bddExistAbstract = binop cw_bdd_exist_abstract
 
 bddUnivAbstract :: Bdd -> Bdd -> IO Bdd
 bddUnivAbstract = binop cw_bdd_univ_abstract
+
+bddCountMinterms :: Bdd -> IO Double
+bddCountMinterms b = do
+  res <- withForeignPtr b cw_bdd_count_minterm
+  when (res == fromIntegral cUDD_OUT_OF_MEM) $ do
+    throw CuddMemoryOut
+  return $ realToFrac res
 
 numVars :: Mgr -> IO Int
 numVars mgr = liftM fromIntegral $ withForeignPtr mgr cw_num_bdd_vars

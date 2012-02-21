@@ -195,3 +195,10 @@ unsigned cw_bdd_size (Bdd *b)
     assert (bdd_good (b));
     return Cudd_DagSize (bdd_ddnode (b));
 }
+
+double cw_bdd_count_minterm (Bdd *b)
+{
+    assert (bdd_good (b));
+    return Cudd_CountMinterm (bdd_ddmanager (b), bdd_ddnode (b),
+                              cw_num_bdd_vars (bdd_mgr (b)));
+}

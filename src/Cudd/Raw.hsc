@@ -2,7 +2,7 @@
 module Cudd.Raw where
 
 import Foreign (Ptr, FunPtr)
-import Foreign.C.Types (CInt, CUInt, CULong)
+import Foreign.C.Types (CInt, CUInt, CULong, CDouble)
 
 #include <cudd.h>
 
@@ -35,6 +35,9 @@ newtype Cudd_ErrorType = Cudd_ErrorType CInt
  , cudd_invalid_arg         = CUDD_INVALID_ARG
  , cudd_internal_error      = CUDD_INTERNAL_ERROR
  }
+
+cUDD_OUT_OF_MEM :: CInt
+cUDD_OUT_OF_MEM = #const CUDD_OUT_OF_MEM
 
 foreign import ccall "cudd_wrappers.h cw_read_error_code" cw_read_error_code
   :: MgrP -> IO Cudd_ErrorType
@@ -83,6 +86,9 @@ foreign import ccall "cudd_wrappers.h cw_bdd_exist_abstract" cw_bdd_exist_abstra
   :: BddP -> BddP -> IO BddP
 foreign import ccall "cudd_wrappers.h cw_bdd_univ_abstract" cw_bdd_univ_abstract
   :: BddP -> BddP -> IO BddP
+
+foreign import ccall "cudd_wrappers.h cw_bdd_count_minterm" cw_bdd_count_minterm
+  :: BddP -> IO CDouble
 
 foreign import ccall "cudd_wrappers.h cw_num_bdd_vars" cw_num_bdd_vars
   :: MgrP -> IO CUInt
