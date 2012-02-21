@@ -105,8 +105,8 @@ main = do
   n <- getConfig
   let queensProp = modelNQueens n
   mgr <- newMgr
-  enableReorderingReporting mgr
-  enableDynamicReordering mgr cudd_reorder_window3
+--  enableReorderingReporting mgr
+--  enableDynamicReordering mgr cudd_reorder_window3
   queensBdd <- synthesizeBdd mgr queensProp
   printf "queensBdd uses %d nodes\n" =<< bddNumNodes queensBdd
   numSolutions <- bddCountMinterms queensBdd
