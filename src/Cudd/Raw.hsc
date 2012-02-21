@@ -2,7 +2,7 @@
 module Cudd.Raw where
 
 import Foreign (Ptr, FunPtr)
-import Foreign.C.Types (CInt, CUInt, CULong, CDouble)
+import Foreign.C.Types (CInt, CUInt, CULong, CDouble, CChar)
 
 #include <cudd.h>
 
@@ -114,3 +114,6 @@ foreign import ccall "cudd_wrappers.h cw_num_nodes" cw_num_nodes
   :: MgrP -> IO CUInt
 foreign import ccall "cudd_wrappers.h cw_bdd_size" cw_bdd_size
   :: BddP -> IO CUInt
+
+foreign import ccall "cudd_wrappers.h cw_bdd_pick_one_cube" cw_bdd_pick_one_cube
+  :: BddP -> Ptr CChar -> IO CInt

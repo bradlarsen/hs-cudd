@@ -45,6 +45,17 @@ modelNQueens n = conjoin [atLeastOnePerRow, nonAttacking]
     cellToIdx (i, j) = n * i + j
     -- idxToCell idx = idx `divMod` n
 
+printAssignment :: Int -> [(Int, VarAssign)] -> IO ()
+printAssignment n assigns = do
+  forM_ [0..n-1] $ \i -> do
+    forM_ [0..n-1] $ \j -> do
+      case lookup (n * i + j) assigns of
+        Just Positive  -> putChar 'Q'
+        Just Negative  -> putChar '.'
+        Just DoNotCare -> putChar 'Q'
+        Nothing        -> error "printAssignment: incomplete assignment"
+    putChar '\n'
+
 -- This sequence is OES A000170, the number of ways of placing n non-attacking
 -- queens on an nxn board.
 expectedNumSolutions :: [(Int, Double)]
@@ -102,6 +113,11 @@ main = do
   printf "queensBdd uses %d nodes\n" =<< bddSize queensBdd
   numSolutions <- bddCountMinterms queensBdd
   printf "%f solutions\n" numSolutions
+  mOneSolution <- bddPickOneMinterm queensBdd
+  case mOneSolution of
+    Nothing -> return ()
+    Just s  -> do printf "one solution:\n"
+                  printAssignment n s
   case lookup n expectedNumSolutions of
     Just ns | numSolutions /= ns -> do printf "error: expected %f solutions!\n" ns
                                        exitFailure

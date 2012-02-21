@@ -208,3 +208,10 @@ double cw_bdd_count_minterm (Bdd *b)
     return Cudd_CountMinterm (bdd_ddmanager (b), bdd_ddnode (b),
                               cw_num_bdd_vars (bdd_mgr (b)));
 }
+
+int cw_bdd_pick_one_cube (Bdd *b, char *varsOut)
+{
+    assert (bdd_good (b));
+    assert (varsOut);
+    return Cudd_bddPickOneCube (bdd_ddmanager (b), bdd_ddnode (b), varsOut);
+}

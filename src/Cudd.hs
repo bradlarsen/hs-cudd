@@ -19,6 +19,8 @@ module Cudd
   , bddExistAbstract
   , bddUnivAbstract
   , bddCountMinterms
+  , VarAssign (..)
+  , bddPickOneMinterm
   , numVars
   , numNodes
   , bddSize
@@ -29,10 +31,12 @@ import Cudd.Raw
 
 import Foreign (nullPtr, Ptr, FunPtr)
 import Foreign.ForeignPtr (ForeignPtr, withForeignPtr, newForeignPtr, newForeignPtrEnv)
+import Foreign.Marshal.Alloc (free)
+import Foreign.Marshal.Array (mallocArray, peekArray)
 
 import Control.Applicative ((<$>))
-import Control.Exception (Exception, finally, throw)
-import Control.Monad ((>=>), when, liftM)
+import Control.Exception (Exception, finally, throw, bracket)
+import Control.Monad ((>=>), when, liftM, forM)
 import Data.Typeable (Typeable)
 
 import System.IO (stderr)
@@ -180,6 +184,25 @@ bddCountMinterms b = do
   when (res == fromIntegral cUDD_OUT_OF_MEM) $ do
     throw CuddMemoryOut
   return $ realToFrac res
+
+data VarAssign = Positive | Negative | DoNotCare
+  deriving (Eq, Ord, Read, Show)
+
+bddPickOneMinterm :: Bdd -> IO (Maybe [(Int, VarAssign)])
+bddPickOneMinterm b = withForeignPtr b $ \b -> do
+  mgr <- cw_bdd_get_manager b
+  numVars <- fromIntegral <$> cw_num_bdd_vars mgr
+  bracket (mallocArray numVars) free $ \arr -> do
+    rc <- cw_bdd_pick_one_cube b arr
+    if rc == 1
+       then do values <- peekArray numVars arr
+               liftM Just $ forM (zip [0..] values) $ \(idx, val) -> do
+                 case val of
+                   0 -> return (idx, Negative)
+                   1 -> return (idx, Positive)
+                   2 -> return (idx, DoNotCare)
+                   _ -> error "Cudd.bddPickOneMinterm: unexpected variable binding"
+       else return Nothing
 
 numVars :: Mgr -> IO Int
 numVars mgr = liftM fromIntegral $ withForeignPtr mgr cw_num_bdd_vars

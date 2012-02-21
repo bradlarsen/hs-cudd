@@ -55,4 +55,6 @@ unsigned cw_num_bdd_vars (Mgr *mgr);
 unsigned cw_num_nodes (Mgr *mgr);
 unsigned cw_bdd_size (Bdd *b);
 
+int cw_bdd_pick_one_cube (Bdd *b, char *varsOut);
+
 #endif /* CUDD_WRAPPERS_H */
