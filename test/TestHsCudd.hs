@@ -52,28 +52,28 @@ andForM (v : vs) f = do
   if v' then andForM vs f
         else return False
 
-prop_symbolicEvaluation :: Prop.Prop -> Property
-prop_symbolicEvaluation prop = monadicIO $ do
-  ok <- run $ do
-          mgr     <- newMgr
-          propBdd <- synthesizeBdd mgr prop
-          andForM (assignments $ vars prop) $ \ass -> do
-            let truthiness = eval ass prop
-            bddTruthiness <- evalBdd ass mgr propBdd
-            return (truthiness == bddTruthiness)
-  assert ok
+bddProp :: IO Bool -> Property
+bddProp act = monadicIO $ do
+  ok <- run act
   run performGC
+  assert ok
+
+prop_symbolicEvaluation :: Prop.Prop -> Property
+prop_symbolicEvaluation prop = bddProp $ do
+  mgr     <- newMgr
+  propBdd <- synthesizeBdd mgr prop
+  andForM (assignments $ vars prop) $ \ass -> do
+    let truthiness = eval ass prop
+    bddTruthiness <- evalBdd ass mgr propBdd
+    return (truthiness == bddTruthiness)
 
 prop_projectionFunSize :: Property
-prop_projectionFunSize = forAll (choose (0, 100000)) $ \idx -> monadicIO $ do
-    ok <- run $ do
-            mgr <- newMgr
-            idxBdd <- bddIthVar mgr idx
-            idxBddNumNodes <- bddNumNodes idxBdd
-            size <- numNodes mgr
-            return (idxBddNumNodes == 2 && size == 2)
-    assert ok
-    run performGC
+prop_projectionFunSize = forAll (choose (0, 100000)) $ \idx -> bddProp $ do
+  mgr <- newMgr
+  idxBdd <- bddIthVar mgr idx
+  idxBddNumNodes <- bddNumNodes idxBdd
+  size <- numNodes mgr
+  return (idxBddNumNodes == 2 && size == 2)
 
 mkCube :: Mgr -> [Bdd] -> IO Bdd
 mkCube mgr vs = do
@@ -82,35 +82,29 @@ mkCube mgr vs = do
 
 prop_existAbstract :: Prop.Prop -> Property
 prop_existAbstract prop = let mv = maxVar prop in isJust mv ==>
-  forAll (listOf $ choose (0, fromJust mv)) $ \vars -> monadicIO $ do
-    ok <- run $ do
-            mgr <- newMgr
-            p   <- synthesizeBdd mgr prop
-            vs  <- mapM (bddIthVar mgr) vars
-            let exist p v = do pv  <- bddRestrict p v
-                               pv' <- bddRestrict p =<< bddNot v
-                               bddOr pv pv'
-            ex' <- foldM exist p vs
-            ex  <- bddExistAbstract p =<< mkCube mgr vs
-            bddEqual ex ex'
-    assert ok
-    run performGC
+  forAll (listOf $ choose (0, fromJust mv)) $ \vars -> bddProp $ do
+    mgr <- newMgr
+    p   <- synthesizeBdd mgr prop
+    vs  <- mapM (bddIthVar mgr) vars
+    let exist p v = do pv  <- bddRestrict p v
+                       pv' <- bddRestrict p =<< bddNot v
+                       bddOr pv pv'
+    ex' <- foldM exist p vs
+    ex  <- bddExistAbstract p =<< mkCube mgr vs
+    bddEqual ex ex'
 
 prop_univAbstract :: Prop.Prop -> Property
 prop_univAbstract prop = let mv = maxVar prop in isJust mv ==>
-  forAll (listOf $ choose (0, fromJust mv)) $ \vars -> monadicIO $ do
-    ok <- run $ do
-            mgr <- newMgr
-            p   <- synthesizeBdd mgr prop
-            vs  <- mapM (bddIthVar mgr) vars
-            let univ p v = do pv  <- bddRestrict p v
-                              pv' <- bddRestrict p =<< bddNot v
-                              bddAnd pv pv'
-            ex' <- foldM univ p vs
-            ex  <- bddUnivAbstract p =<< mkCube mgr vs
-            bddEqual ex ex'
-    assert ok
-    run performGC
+  forAll (listOf $ choose (0, fromJust mv)) $ \vars -> bddProp $ do
+    mgr <- newMgr
+    p   <- synthesizeBdd mgr prop
+    vs  <- mapM (bddIthVar mgr) vars
+    let univ p v = do pv  <- bddRestrict p v
+                      pv' <- bddRestrict p =<< bddNot v
+                      bddAnd pv pv'
+    ex' <- foldM univ p vs
+    ex  <- bddUnivAbstract p =<< mkCube mgr vs
+    bddEqual ex ex'
 
 main :: IO ()
 main = do
