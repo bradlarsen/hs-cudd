@@ -13,6 +13,8 @@ typedef struct Mgr Mgr;
 Mgr * cw_init ();
 void cw_quit (Mgr *mgr);
 
+int cw_add_hook (Mgr *mgr, DD_HFP hookFun, Cudd_HookType hookType);
+
 typedef struct Bdd Bdd;
 void cw_bdd_destroy (Bdd *bdd);
 /* IDEA: we could add a cw_bdd_deref operation that dereferences the contained

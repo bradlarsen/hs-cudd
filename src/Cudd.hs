@@ -30,9 +30,14 @@ import Cudd.Raw
 import Foreign (nullPtr, Ptr, FunPtr)
 import Foreign.ForeignPtr (ForeignPtr, withForeignPtr, newForeignPtr, newForeignPtrEnv)
 
+import Control.Applicative ((<$>))
 import Control.Exception (Exception, finally, throw)
 import Control.Monad ((>=>), when, liftM)
 import Data.Typeable (Typeable)
+
+import System.IO (stderr)
+import System.Mem (performGC)
+import Text.Printf (hPrintf)
 
 
 
@@ -79,7 +84,22 @@ mkBdd mgr bdd = do
   newForeignPtr cw_bdd_destroy_p bdd
 
 newMgr :: IO Mgr
-newMgr = cw_init >>= newForeignPtr cw_quit_p
+newMgr = do
+  mgr <- cw_init
+  let checkRC rc = when (rc /= 1) $ error "failed to add hook"
+  let numNodes :: IO Int
+      numNodes = fromIntegral <$> cw_num_nodes mgr
+  preGC  <- wrapHook $ \_mgr _str _env -> do
+              hPrintf stderr "CUDD garbage collection: %d --> " =<< numNodes
+              performGC
+              return 1
+  cw_add_hook mgr preGC cudd_pre_gc_hook >>= checkRC
+  postGC <- wrapHook $ \_mgr _str _env -> do
+              hPrintf stderr "%d nodes\n" =<< numNodes
+              return 1
+  cw_add_hook mgr postGC cudd_post_gc_hook >>= checkRC
+  -- TODO:  we should call [freeHaskellFunPtr] on the callbacks when finished
+  newForeignPtr cw_quit_p mgr
 
 bddEqual :: Bdd -> Bdd -> IO Bool
 bddEqual b1 b2 = do

@@ -40,6 +40,12 @@ void cw_quit (Mgr *mgr)
     mgr_deref (mgr);
 }
 
+int cw_add_hook (Mgr *mgr, DD_HFP hookFun, Cudd_HookType hookType)
+{
+    assert (mgr_good (mgr));
+    return Cudd_AddHook (mgr_ddmanager (mgr), hookFun, hookType);
+}
+
 
 struct Bdd
 {

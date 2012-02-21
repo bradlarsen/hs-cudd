@@ -21,6 +21,24 @@ foreign import ccall "cudd_wrappers.h &cw_quit" cw_quit_p
 foreign import ccall "cudd_wrappers.h &cw_bdd_destroy" cw_bdd_destroy_p
   :: FunPtr (BddP -> IO ())
 
+newtype Cudd_HookType = Cudd_HookType CInt
+  deriving (Eq, Ord)
+#{enum Cudd_HookType, Cudd_HookType
+ , cudd_pre_gc_hook          = CUDD_PRE_GC_HOOK
+ , cudd_post_gc_hook         = CUDD_POST_GC_HOOK
+ , cudd_pre_reordering_hook  = CUDD_PRE_REORDERING_HOOK
+ , cudd_post_reordering_hook = CUDD_POST_REORDERING_HOOK
+ }
+
+-- typedef int (*DD_HFP)(DdManager *, const char *, void *);
+type HookFun = Ptr () -> Ptr () -> Ptr () -> IO CInt
+
+foreign import ccall "cudd_wrappers.h cw_add_hook" cw_add_hook
+  :: MgrP -> FunPtr HookFun -> Cudd_HookType -> IO CInt
+
+foreign import ccall "wrapper" wrapHook
+  :: HookFun -> IO (FunPtr HookFun)
+
 foreign import ccall "cudd_wrappers.h cw_bdd_get_manager" cw_bdd_get_manager
   :: BddP -> IO MgrP
 

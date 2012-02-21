@@ -27,15 +27,18 @@ Library
   Exposed-modules:   Cudd.Raw
                      Cudd
 
-  Build-depends:     base, transformers
+  Build-depends:     base
 
   -- Modules not exported by this package.
   -- Other-modules:
 
   Build-tools:       hsc2hs
   cc-options:        -DHAVE_IEEE_754 -DSIZEOF_VOID_P=8 -DSIZEOF_LONG=8
-                     -DDD_DEBUG -DDD_STATS -DDD_CACHE_PROFILE
-                     -DDD_UNIQUE_PROFILE -DDD_COUNT
+                     -- -DDD_DEBUG
+                     -- -DDD_CACHE_PROFILE
+                     -- -DDD_UNIQUE_PROFILE
+                     -- -DDD_COUNT          -- count number of recursive calls
+                     -- -DDD_STATS          -- track & report some stats?
                      -- -Wall -ansi
   c-sources:         src/cbits/cudd_wrappers.c
                      cudd-2.5.0/cudd/cuddAddAbs.c
