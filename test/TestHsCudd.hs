@@ -3,18 +3,20 @@ module Main where
 import Cudd
 import Prop
 
-import Control.Monad (forM_, forM, liftM, foldM)
+import Control.Monad (forM_, forM, liftM, foldM, when)
+import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.Maybe (fromJust, isJust)
+import System.Exit (exitFailure, exitSuccess)
 import System.IO (stderr)
 import Text.Printf (hPrintf, printf)
 
-import Test.QuickCheck (Property, quickCheckWith, stdArgs,
-                        Args (maxSuccess, maxDiscard), Testable,
-                        verboseCheckWith, (==>), forAll, choose,
-                        Positive (Positive), listOf)
+import Test.QuickCheck
+  (Property, quickCheckWithResult, stdArgs, Args (maxSuccess, maxDiscard),
+   Testable, (==>), forAll, choose, Positive (Positive),
+   listOf, Result (Failure, NoExpectedFailure))
 import Test.QuickCheck.Monadic (monadicIO, assert, run)
 
-import Test.HUnit (Test (TestCase, TestList), assertBool)
+import Test.HUnit (Test (TestCase, TestList), assertBool, errors, failures)
 import Test.HUnit.Text (runTestTT)
 
 import System.Mem (performGC)
@@ -108,15 +110,27 @@ prop_univAbstract prop = let mv = maxVar prop in isJust mv ==>
 
 main :: IO ()
 main = do
+  failed <- newIORef False
+
   putStrLn "### HUnit tests ###"
-  _counts <- runTestTT unitTests
+  counts <- runTestTT unitTests
+  when (errors counts /= 0 || failures counts /= 0) $ do
+    writeIORef failed True
 
   putStrLn "### QuickCheck tests ###"
   let conf = stdArgs { maxSuccess = 100, maxDiscard = 1000 }
   let qc :: Testable p => String -> p -> IO ()
-      qc name prop = printf "%s: " name >> quickCheckWith conf prop
+      qc name prop = do printf "%s: " name
+                        res <- quickCheckWithResult conf prop
+                        case res of
+                          Failure {}           -> writeIORef failed True
+                          NoExpectedFailure {} -> writeIORef failed True
+                          _                    -> return ()
+
   qc "prop_symbolicEvaluation" prop_symbolicEvaluation
   qc "prop_projectionFunSize" prop_projectionFunSize
   qc "prop_existAbstract" prop_existAbstract
   qc "prop_univAbstract" prop_univAbstract
-  return ()
+
+  didFail <- readIORef failed
+  if didFail then exitFailure else exitSuccess

@@ -9,8 +9,7 @@ import Prop
 
 import Control.Applicative ((<$>), (<*>))
 import Control.Monad ((>=>), (<=<), forM_, forM, foldM, guard)
-import System.Environment (getArgs, getProgName)
-import System.Exit (exitFailure)
+import System.Exit (exitFailure, exitSuccess)
 import System.IO (stderr)
 import Text.Printf (printf, hPrintf)
 
@@ -86,23 +85,10 @@ expectedNumSolutions = [
   , (26, 22317699616364044)
   ]
 
-usageAndQuit :: IO a
-usageAndQuit = do
-  hPrintf stderr "usage: %s N\n" =<< getProgName
-  exitFailure
-
-getConfig :: IO Int
-getConfig = do
-  args <- getArgs
-  case args of
-    [n] -> case reads n of
-             [(n, "")] | n > 0 -> return n
-             _                 -> usageAndQuit
-    _   -> usageAndQuit
-
 main :: IO ()
-main = do
-  n <- getConfig
+main = forM_ [1..10] $ \n -> do
+  printf "################\n"
+  printf "n is %d\n" n
   let queensProp = modelNQueens n
   mgr <- newMgr
 --  enableReorderingReporting mgr
