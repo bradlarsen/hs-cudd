@@ -5,6 +5,8 @@ module Cudd
   , newMgr
   , numVars
   , numNodes
+  , nodeLimit
+  , setNodeLimit
 
   , CuddException (..)
 
@@ -73,6 +75,7 @@ import Control.Exception (Exception, throw, bracket)
 import Control.Monad ((>=>), when, liftM, forM, unless)
 import Data.List (sort)
 import Data.Typeable (Typeable)
+import Data.Word (Word)
 
 import System.IO (stderr)
 import System.Mem (performGC)
@@ -88,6 +91,16 @@ newtype Mgr = Mgr { unMgr :: ForeignPtr MgrT }
 
 withMgr :: Mgr -> (MgrP -> IO a) -> IO a
 withMgr = withForeignPtr . unMgr
+
+data DdManagerT
+type DdManagerP = Ptr DdManagerT
+
+foreign import ccall "cudd_wrappers.h cw_mgr_ddmanager" cw_mgr_ddmanager
+  :: MgrP -> IO DdManagerP
+withDdManager :: Mgr -> (DdManagerP -> IO a) -> IO a
+withDdManager mgr f = withForeignPtr (unMgr mgr) $ \mgr -> do
+  ddmanager <- cw_mgr_ddmanager mgr
+  f ddmanager
 
 foreign import ccall "cudd_wrappers.h cw_init" cw_init
   :: IO MgrP
@@ -140,6 +153,17 @@ foreign import ccall "cudd_wrappers.h cw_num_nodes" cw_num_nodes
   :: MgrP -> IO CUInt
 numNodes :: Mgr -> IO Int
 numNodes mgr = fromIntegral <$> withMgr mgr cw_num_nodes
+
+foreign import ccall "cudd_wrappers.h Cudd_ReadMaxLive" cudd_ReadMaxLive
+  :: DdManagerP -> IO CUInt
+nodeLimit :: Mgr -> IO Word
+nodeLimit mgr = fromIntegral <$> withDdManager mgr cudd_ReadMaxLive
+
+foreign import ccall "cudd_wrappers.h Cudd_SetMaxLive" cudd_SetMaxLive
+  :: DdManagerP -> CUInt -> IO ()
+setNodeLimit :: Mgr -> Word -> IO ()
+setNodeLimit mgr limit = withDdManager mgr $ \ddmanager -> do
+  cudd_SetMaxLive ddmanager (fromIntegral limit)
 
 
 newtype Cudd_ReorderingType = Cudd_ReorderingType CInt

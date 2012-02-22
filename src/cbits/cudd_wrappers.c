@@ -41,6 +41,13 @@ void cw_quit (Mgr *mgr)
     mgr_deref (mgr);
 }
 
+DdManager * cw_mgr_ddmanager (Mgr *mgr)
+{
+    assert (mgr_good (mgr));
+    return mgr->manager;
+}
+
+
 int cw_add_hook (Mgr *mgr, DD_HFP hookFun, Cudd_HookType hookType)
 {
     assert (mgr_good (mgr));

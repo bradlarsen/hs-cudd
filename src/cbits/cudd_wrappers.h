@@ -13,6 +13,8 @@ typedef struct Mgr Mgr;
 Mgr * cw_init ();
 void cw_quit (Mgr *mgr);
 
+DdManager * cw_mgr_ddmanager (Mgr *mgr);
+
 int cw_add_hook (Mgr *mgr, DD_HFP hookFun, Cudd_HookType hookType);
 
 int cw_enable_reordering_reporting (Mgr *mgr);
