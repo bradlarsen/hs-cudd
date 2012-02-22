@@ -65,7 +65,7 @@ module Cudd
   ) where
 
 import Foreign (nullPtr, Ptr, FunPtr)
-import Foreign.C.Types (CInt, CUInt, CDouble, CChar)
+import Foreign.C.Types (CInt, CUInt, CDouble, CChar, CLong)
 import Foreign.ForeignPtr (ForeignPtr, newForeignPtr, withForeignPtr)
 import Foreign.Marshal.Alloc (free)
 import Foreign.Marshal.Array (mallocArray, peekArray, withArray)
@@ -98,9 +98,7 @@ type DdManagerP = Ptr DdManagerT
 foreign import ccall "cudd_wrappers.h cw_mgr_ddmanager" cw_mgr_ddmanager
   :: MgrP -> IO DdManagerP
 withDdManager :: Mgr -> (DdManagerP -> IO a) -> IO a
-withDdManager mgr f = withForeignPtr (unMgr mgr) $ \mgr -> do
-  ddmanager <- cw_mgr_ddmanager mgr
-  f ddmanager
+withDdManager mgr f = withForeignPtr (unMgr mgr) (cw_mgr_ddmanager >=> f)
 
 foreign import ccall "cudd_wrappers.h cw_init" cw_init
   :: IO MgrP
@@ -109,18 +107,19 @@ foreign import ccall "cudd_wrappers.h &cw_quit" cw_quit_p
 newMgr :: IO Mgr
 newMgr = do
   mgr <- cw_init
+  ddmanager <- cw_mgr_ddmanager mgr
   let checkRC rc = when (rc /= 1) $ error "failed to add hook"
   let numNodes :: IO Int
-      numNodes = fromIntegral <$> cw_num_nodes mgr
+      numNodes = fromIntegral <$> cudd_ReadNodeCount ddmanager
   preGC  <- wrapHook $ \_mgr _str _env -> do
               _ <- hPrintf stderr "CUDD garbage collection: %d --> " =<< numNodes
               performGC
               return 1
-  cw_add_hook mgr preGC cudd_pre_gc_hook >>= checkRC
+  cudd_AddHook ddmanager preGC cudd_pre_gc_hook >>= checkRC
   postGC <- wrapHook $ \_mgr _str _env -> do
               _ <- hPrintf stderr "%d nodes\n" =<< numNodes
               return 1
-  cw_add_hook mgr postGC cudd_post_gc_hook >>= checkRC
+  cudd_AddHook ddmanager postGC cudd_post_gc_hook >>= checkRC
   -- TODO:  we should call [freeHaskellFunPtr] on the callbacks when finished
   Mgr <$> newForeignPtr cw_quit_p mgr
 
@@ -138,28 +137,28 @@ newtype Cudd_HookType = Cudd_HookType CInt
 -- typedef int (*DD_HFP)(DdManager *, const char *, void *);
 type HookFun = Ptr () -> Ptr () -> Ptr () -> IO CInt
 
-foreign import ccall "cudd_wrappers.h cw_add_hook" cw_add_hook
-  :: MgrP -> FunPtr HookFun -> Cudd_HookType -> IO CInt
+foreign import ccall "cudd.h Cudd_AddHook" cudd_AddHook
+  :: DdManagerP -> FunPtr HookFun -> Cudd_HookType -> IO CInt
 
 foreign import ccall "wrapper" wrapHook
   :: HookFun -> IO (FunPtr HookFun)
 
-foreign import ccall "cudd_wrappers.h cw_num_bdd_vars" cw_num_bdd_vars
-  :: MgrP -> IO CUInt
+foreign import ccall "cudd.h Cudd_ReadSize" cudd_ReadSize
+  :: DdManagerP -> IO CInt
 numVars :: Mgr -> IO Int
-numVars mgr = fromIntegral <$> withMgr mgr cw_num_bdd_vars
+numVars mgr = fromIntegral <$> withDdManager mgr cudd_ReadSize
 
-foreign import ccall "cudd_wrappers.h cw_num_nodes" cw_num_nodes
-  :: MgrP -> IO CUInt
+foreign import ccall "cudd.h Cudd_ReadNodeCount" cudd_ReadNodeCount
+  :: DdManagerP -> IO CLong
 numNodes :: Mgr -> IO Int
-numNodes mgr = fromIntegral <$> withMgr mgr cw_num_nodes
+numNodes mgr = fromIntegral <$> withDdManager mgr cudd_ReadNodeCount
 
-foreign import ccall "cudd_wrappers.h Cudd_ReadMaxLive" cudd_ReadMaxLive
+foreign import ccall "cudd.h Cudd_ReadMaxLive" cudd_ReadMaxLive
   :: DdManagerP -> IO CUInt
 nodeLimit :: Mgr -> IO Word
 nodeLimit mgr = fromIntegral <$> withDdManager mgr cudd_ReadMaxLive
 
-foreign import ccall "cudd_wrappers.h Cudd_SetMaxLive" cudd_SetMaxLive
+foreign import ccall "cudd.h Cudd_SetMaxLive" cudd_SetMaxLive
   :: DdManagerP -> CUInt -> IO ()
 setNodeLimit :: Mgr -> Word -> IO ()
 setNodeLimit mgr limit = withDdManager mgr $ \ddmanager -> do
@@ -193,45 +192,45 @@ newtype Cudd_ReorderingType = Cudd_ReorderingType CInt
  , cudd_reorder_exac            = CUDD_REORDER_EXACT
  }
 
-foreign import ccall "cudd_wrappers.h cw_enable_reordering_reporting" cw_enable_reordering_reporting
-  :: MgrP -> IO CInt
+foreign import ccall "cudd.h Cudd_EnableReorderingReporting" cudd_EnableReorderingReporting
+  :: DdManagerP -> IO CInt
 enableReorderingReporting :: Mgr -> IO ()
-enableReorderingReporting mgr = withMgr mgr $ \mgr -> do
-  rc <- cw_enable_reordering_reporting mgr
+enableReorderingReporting mgr = withDdManager mgr $ \ddmanager -> do
+  rc <- cudd_EnableReorderingReporting ddmanager
   when (rc /= 1) $ error "Cudd.enableReorderingReporting: call failed"
 
-foreign import ccall "cudd_wrappers.h cw_disable_reordering_reporting" cw_disable_reordering_reporting
-  :: MgrP -> IO CInt
+foreign import ccall "cudd.h Cudd_DisableReorderingReporting" cudd_DisableReorderingReporting
+  :: DdManagerP -> IO CInt
 disableReorderingReporting :: Mgr -> IO ()
-disableReorderingReporting mgr = withMgr mgr $ \mgr -> do
-  rc <- cw_disable_reordering_reporting mgr
+disableReorderingReporting mgr = withDdManager mgr $ \ddmanager -> do
+  rc <- cudd_DisableReorderingReporting ddmanager
   when (rc /= 1) $ error "Cudd.disableReorderingReporting: call failed"
 
-foreign import ccall "cudd_wrappers.h cw_reordering_reporting" cw_reordering_reporting
-  :: MgrP -> IO CInt
+foreign import ccall "cudd.h Cudd_ReorderingReporting" cudd_ReorderingReporting
+  :: DdManagerP -> IO CInt
 reorderingReporting :: Mgr -> IO Bool
-reorderingReporting mgr = cintToBool <$> withMgr mgr cw_reordering_reporting
+reorderingReporting mgr = cintToBool <$> withDdManager mgr cudd_ReorderingReporting
 
-foreign import ccall "cudd_wrappers.h cw_autodyn_enable" cw_autodyn_enable
-  :: MgrP -> Cudd_ReorderingType -> IO ()
+foreign import ccall "cudd.h Cudd_AutodynEnable" cudd_AutodynEnable
+  :: DdManagerP -> Cudd_ReorderingType -> IO ()
 enableDynamicReordering :: Mgr -> Cudd_ReorderingType -> IO ()
-enableDynamicReordering mgr method = withMgr mgr $ \mgr -> do
-  cw_autodyn_enable mgr method
+enableDynamicReordering mgr method = withDdManager mgr $ \ddmanager -> do
+  cudd_AutodynEnable ddmanager method
 
-foreign import ccall "cudd_wrappers.h cw_autodyn_disable" cw_autodyn_disable
-  :: MgrP -> IO ()
+foreign import ccall "cudd.h Cudd_AutodynDisable" cudd_AutodynDisable
+  :: DdManagerP -> IO ()
 disableDynamicReordering :: Mgr -> IO ()
-disableDynamicReordering mgr = withMgr mgr cw_autodyn_disable
+disableDynamicReordering mgr = withDdManager mgr cudd_AutodynDisable
 
-foreign import ccall "cudd_wrappers.h cw_shuffle_heap" cw_shuffle_heap
-  :: MgrP -> Ptr CInt -> IO CInt
+foreign import ccall "cudd.h Cudd_ShuffleHeap" cudd_ShuffleHeap
+  :: DdManagerP -> Ptr CInt -> IO CInt
 reorderVariables :: Mgr -> [Int] -> IO ()
-reorderVariables mgr permutation = withMgr mgr $ \mgr -> do
-  numVars <- fromIntegral <$> cw_num_bdd_vars mgr
+reorderVariables mgr permutation = withDdManager mgr $ \ddmanager -> do
+  numVars <- fromIntegral <$> cudd_ReadSize ddmanager
   unless (permutation `isPermutationOf` numVars) $ do
     error "Cudd.reorderVariables: input is not a permutation"
   withArray (map fromIntegral permutation) $ \permutation' -> do
-    res <- cw_shuffle_heap mgr permutation'
+    res <- cudd_ShuffleHeap ddmanager permutation'
     when (res /= 1) $ do
       error "Cudd.reorderVariables: call failed"
 
@@ -288,6 +287,9 @@ type BddP = Ptr BddT
 -- TODO: alas, the default Eq instances (structural equality) are wrong
 newtype Bdd = Bdd { unBdd :: ForeignPtr BddT }
 
+data DdNodeT
+type DdNodeP = Ptr DdNodeT
+
 withBdd :: Bdd -> (BddP -> IO a) -> IO a
 withBdd = withForeignPtr . unBdd
 
@@ -301,8 +303,14 @@ mkBdd mgr bdd = do
     throw (toCuddException err)
   Bdd <$> newForeignPtr cw_bdd_destroy_p bdd
 
-foreign import ccall "cudd_wrappers.h cw_bdd_get_manager" cw_bdd_get_manager
+foreign import ccall "cudd_wrappers.h cw_bdd_mgr" cw_bdd_mgr
   :: BddP -> IO MgrP
+
+foreign import ccall "cudd_wrappers.h cw_bdd_ddmanager" cw_bdd_ddmanager
+  :: BddP -> IO DdManagerP
+
+foreign import ccall "cudd_wrappers.h cw_bdd_ddnode" cw_bdd_ddnode
+  :: BddP -> IO DdNodeP
 
 foreign import ccall "cudd_wrappers.h cw_bdd_size" cw_bdd_size
   :: BddP -> IO CUInt
@@ -314,9 +322,9 @@ bddNumNodes bdd = fromIntegral <$> withBdd bdd cw_bdd_size
 checkSameManager :: Bdd -> Bdd -> IO ()
 checkSameManager b1 b2 =
   withBdd b1 $ \pb1 -> do
-    mgr1 <- cw_bdd_get_manager pb1
+    mgr1 <- cw_bdd_mgr pb1
     withBdd b2 $ \pb2 -> do
-      mgr2 <- cw_bdd_get_manager pb2
+      mgr2 <- cw_bdd_mgr pb2
       when (mgr1 /= mgr2) $ error "Cudd.checkSameManager: different managers"
 
 
@@ -357,14 +365,14 @@ binop f = \b1 b2 -> do
   checkSameManager b1 b2
   withBdd b1 $ \b1 -> do
     withBdd b2 $ \b2 -> do
-      mgr <- cw_bdd_get_manager b1
+      mgr <- cw_bdd_mgr b1
       mkBdd mgr =<< f b1 b2
 
 foreign import ccall "cudd_wrappers.h cw_bdd_not" cw_bdd_not
   :: BddP -> IO BddP
 bddNot :: Bdd -> IO Bdd
 bddNot b = withBdd b $ \b -> do
-  mgr <- cw_bdd_get_manager b
+  mgr <- cw_bdd_mgr b
   mkBdd mgr =<< cw_bdd_not b
 
 foreign import ccall "cudd_wrappers.h cw_bdd_and" cw_bdd_and
@@ -412,11 +420,14 @@ foreign import ccall "cudd_wrappers.h cw_bdd_univ_abstract" cw_bdd_univ_abstract
 bddUnivAbstract :: Bdd -> Bdd -> IO Bdd
 bddUnivAbstract = binop cw_bdd_univ_abstract
 
-foreign import ccall "cudd_wrappers.h cw_bdd_count_minterm" cw_bdd_count_minterm
-  :: BddP -> IO CDouble
+foreign import ccall "cudd.h Cudd_CountMinterm" cudd_CountMinterm
+  :: DdManagerP -> DdNodeP -> CInt -> IO CDouble
 bddCountMinterms :: Bdd -> IO Double
-bddCountMinterms b = do
-  res <- withBdd b cw_bdd_count_minterm
+bddCountMinterms b = withBdd b $ \b -> do
+  ddnode <- cw_bdd_ddnode b
+  ddmanager <- cw_bdd_ddmanager b
+  numVars <- cudd_ReadSize ddmanager
+  res <- cudd_CountMinterm ddmanager ddnode numVars
   when (res == fromIntegral cUDD_OUT_OF_MEM) $ do
     throw CuddMemoryOut
   return $ realToFrac res
@@ -429,8 +440,8 @@ foreign import ccall "cudd_wrappers.h cw_bdd_pick_one_cube" cw_bdd_pick_one_cube
   :: BddP -> Ptr CChar -> IO CInt
 bddPickOneMinterm :: Bdd -> IO (Maybe [(Int, VarAssign)])
 bddPickOneMinterm b = withBdd b $ \b -> do
-  mgr <- cw_bdd_get_manager b
-  numVars <- fromIntegral <$> cw_num_bdd_vars mgr
+  ddmanager <- cw_bdd_ddmanager b
+  numVars <- fromIntegral <$> cudd_ReadSize ddmanager
   bracket (mallocArray numVars) free $ \arr -> do
     rc <- cw_bdd_pick_one_cube b arr
     if rc == 1

@@ -48,49 +48,6 @@ DdManager * cw_mgr_ddmanager (Mgr *mgr)
 }
 
 
-int cw_add_hook (Mgr *mgr, DD_HFP hookFun, Cudd_HookType hookType)
-{
-    assert (mgr_good (mgr));
-    return Cudd_AddHook (mgr_ddmanager (mgr), hookFun, hookType);
-}
-
-int cw_enable_reordering_reporting (Mgr *mgr)
-{
-    assert (mgr_good (mgr));
-    return Cudd_EnableReorderingReporting (mgr_ddmanager (mgr));
-}
-
-int cw_disable_reordering_reporting (Mgr *mgr)
-{
-    assert (mgr_good (mgr));
-    return Cudd_DisableReorderingReporting (mgr_ddmanager (mgr));
-}
-
-int cw_reordering_reporting (Mgr *mgr)
-{
-    assert (mgr_good (mgr));
-    return Cudd_ReorderingReporting (mgr_ddmanager (mgr));
-}
-
-void cw_autodyn_enable (Mgr *mgr, Cudd_ReorderingType method)
-{
-    assert (mgr_good (mgr));
-    Cudd_AutodynEnable (mgr_ddmanager (mgr), method);
-}
-
-void cw_autodyn_disable (Mgr *mgr)
-{
-    assert (mgr_good (mgr));
-    Cudd_AutodynDisable (mgr_ddmanager (mgr));
-}
-
-int cw_shuffle_heap (Mgr *mgr, int *permutation)
-{
-    assert (mgr_good (mgr));
-    return Cudd_ShuffleHeap (mgr_ddmanager (mgr), permutation);
-}
-
-
 struct Bdd
 {
     Mgr *manager;
@@ -125,10 +82,22 @@ void cw_bdd_destroy (Bdd *bdd)
     free (bdd);
 }
 
-Mgr * cw_bdd_get_manager (Bdd *b)
+DdNode * cw_bdd_ddnode (Bdd *bdd)
+{
+    assert (bdd_good (bdd));
+    return bdd_ddnode (bdd);
+}
+
+Mgr * cw_bdd_mgr (Bdd *b)
 {
     assert (bdd_good (b));
     return bdd_mgr (b);
+}
+
+DdManager * cw_bdd_ddmanager (Bdd *b)
+{
+    assert (bdd_good (b));
+    return mgr_ddmanager (bdd_mgr (b));
 }
 
 Cudd_ErrorType cw_read_error_code (Mgr *mgr)
@@ -228,29 +197,10 @@ Bdd * cw_bdd_compose (Bdd *b1, Bdd *b2, unsigned v)
                                         bdd_ddnode (b2), v));
 }
 
-unsigned cw_num_bdd_vars (Mgr *mgr)
-{
-    assert (mgr_good (mgr));
-    return Cudd_ReadSize (mgr_ddmanager (mgr));
-}
-
-unsigned cw_num_nodes (Mgr *mgr)
-{
-    assert (mgr_good (mgr));
-    return Cudd_ReadNodeCount (mgr_ddmanager (mgr));
-}
-
 unsigned cw_bdd_size (Bdd *b)
 {
     assert (bdd_good (b));
     return Cudd_DagSize (bdd_ddnode (b));
-}
-
-double cw_bdd_count_minterm (Bdd *b)
-{
-    assert (bdd_good (b));
-    return Cudd_CountMinterm (bdd_ddmanager (b), bdd_ddnode (b),
-                              cw_num_bdd_vars (bdd_mgr (b)));
 }
 
 int cw_bdd_pick_one_cube (Bdd *b, char *varsOut)
