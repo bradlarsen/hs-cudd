@@ -36,6 +36,7 @@ module Cudd
   , cudd_reorder_linear_converge
   , cudd_reorder_lazy_sift
   , cudd_reorder_exac
+  , reorderVariables
 
   , Bdd
   , bddNumNodes
@@ -65,11 +66,12 @@ import Foreign (nullPtr, Ptr, FunPtr)
 import Foreign.C.Types (CInt, CUInt, CDouble, CChar)
 import Foreign.ForeignPtr (ForeignPtr, newForeignPtr, withForeignPtr)
 import Foreign.Marshal.Alloc (free)
-import Foreign.Marshal.Array (mallocArray, peekArray)
+import Foreign.Marshal.Array (mallocArray, peekArray, withArray)
 
 import Control.Applicative ((<$>))
 import Control.Exception (Exception, throw, bracket)
-import Control.Monad ((>=>), when, liftM, forM)
+import Control.Monad ((>=>), when, liftM, forM, unless)
+import Data.List (sort)
 import Data.Typeable (Typeable)
 
 import System.IO (stderr)
@@ -98,12 +100,12 @@ newMgr = do
   let numNodes :: IO Int
       numNodes = fromIntegral <$> cw_num_nodes mgr
   preGC  <- wrapHook $ \_mgr _str _env -> do
-              hPrintf stderr "CUDD garbage collection: %d --> " =<< numNodes
+              _ <- hPrintf stderr "CUDD garbage collection: %d --> " =<< numNodes
               performGC
               return 1
   cw_add_hook mgr preGC cudd_pre_gc_hook >>= checkRC
   postGC <- wrapHook $ \_mgr _str _env -> do
-              hPrintf stderr "%d nodes\n" =<< numNodes
+              _ <- hPrintf stderr "%d nodes\n" =<< numNodes
               return 1
   cw_add_hook mgr postGC cudd_post_gc_hook >>= checkRC
   -- TODO:  we should call [freeHaskellFunPtr] on the callbacks when finished
@@ -115,9 +117,10 @@ newtype Cudd_HookType = Cudd_HookType CInt
 #{enum Cudd_HookType, Cudd_HookType
  , cudd_pre_gc_hook          = CUDD_PRE_GC_HOOK
  , cudd_post_gc_hook         = CUDD_POST_GC_HOOK
- , cudd_pre_reordering_hook  = CUDD_PRE_REORDERING_HOOK
- , cudd_post_reordering_hook = CUDD_POST_REORDERING_HOOK
  }
+-- , cudd_pre_reordering_hook  = CUDD_PRE_REORDERING_HOOK
+-- , cudd_post_reordering_hook = CUDD_POST_REORDERING_HOOK
+-- }
 
 -- typedef int (*DD_HFP)(DdManager *, const char *, void *);
 type HookFun = Ptr () -> Ptr () -> Ptr () -> IO CInt
@@ -196,6 +199,64 @@ foreign import ccall "cudd_wrappers.h cw_autodyn_disable" cw_autodyn_disable
 disableDynamicReordering :: Mgr -> IO ()
 disableDynamicReordering mgr = withMgr mgr cw_autodyn_disable
 
+foreign import ccall "cudd_wrappers.h cw_shuffle_heap" cw_shuffle_heap
+  :: MgrP -> Ptr CInt -> IO CInt
+reorderVariables :: Mgr -> [Int] -> IO ()
+reorderVariables mgr permutation = withMgr mgr $ \mgr -> do
+  numVars <- fromIntegral <$> cw_num_bdd_vars mgr
+  unless (permutation `isPermutationOf` numVars) $ do
+    error "Cudd.reorderVariables: input is not a permutation"
+  withArray (map fromIntegral permutation) $ \permutation' -> do
+    res <- cw_shuffle_heap mgr permutation'
+    when (res /= 1) $ do
+      error "Cudd.reorderVariables: call failed"
+
+
+
+newtype Cudd_ErrorType = Cudd_ErrorType CInt
+  deriving (Eq, Ord)
+#{enum Cudd_ErrorType, Cudd_ErrorType
+ , cudd_no_error            = CUDD_NO_ERROR
+ , cudd_memory_out          = CUDD_MEMORY_OUT
+ , cudd_too_many_nodes      = CUDD_TOO_MANY_NODES
+ , cudd_max_mem_exceeded    = CUDD_MAX_MEM_EXCEEDED
+ , cudd_timeout_expired     = CUDD_TIMEOUT_EXPIRED
+ , cudd_invalid_arg         = CUDD_INVALID_ARG
+ , cudd_internal_error      = CUDD_INTERNAL_ERROR
+ }
+
+cUDD_OUT_OF_MEM :: CInt
+cUDD_OUT_OF_MEM = #const CUDD_OUT_OF_MEM
+
+foreign import ccall "cudd_wrappers.h cw_read_error_code" cw_read_error_code
+  :: MgrP -> IO Cudd_ErrorType
+
+-- foreign import ccall "cudd_wrappers.h cw_clear_error_code" cw_clear_error_code
+--   :: MgrP -> IO ()
+
+data CuddException
+  = CuddNoError
+  | CuddMemoryOut
+  | CuddTooManyNodes
+  | CuddMaxMemExceeded
+  | CuddTimeoutExpired
+  | CuddInvalidArg
+  | CuddInternalError
+  deriving (Eq, Ord, Show, Typeable)
+
+instance Exception CuddException
+
+toCuddException :: Cudd_ErrorType -> CuddException
+toCuddException err
+  | err == cudd_no_error         = CuddNoError
+  | err == cudd_memory_out       = CuddMemoryOut
+  | err == cudd_too_many_nodes   = CuddTooManyNodes
+  | err == cudd_max_mem_exceeded = CuddMaxMemExceeded
+  | err == cudd_timeout_expired  = CuddTimeoutExpired
+  | err == cudd_invalid_arg      = CuddInvalidArg
+  | err == cudd_internal_error   = CuddInternalError
+  | otherwise = error "Cudd.Raw.toCuddException: bad Cudd_ErrorType!"
+
 
 
 data BddT
@@ -233,52 +294,6 @@ checkSameManager b1 b2 =
     withBdd b2 $ \pb2 -> do
       mgr2 <- cw_bdd_get_manager pb2
       when (mgr1 /= mgr2) $ error "Cudd.checkSameManager: different managers"
-
-
-
-newtype Cudd_ErrorType = Cudd_ErrorType CInt
-  deriving (Eq, Ord)
-#{enum Cudd_ErrorType, Cudd_ErrorType
- , cudd_no_error            = CUDD_NO_ERROR
- , cudd_memory_out          = CUDD_MEMORY_OUT
- , cudd_too_many_nodes      = CUDD_TOO_MANY_NODES
- , cudd_max_mem_exceeded    = CUDD_MAX_MEM_EXCEEDED
- , cudd_timeout_expired     = CUDD_TIMEOUT_EXPIRED
- , cudd_invalid_arg         = CUDD_INVALID_ARG
- , cudd_internal_error      = CUDD_INTERNAL_ERROR
- }
-
-cUDD_OUT_OF_MEM :: CInt
-cUDD_OUT_OF_MEM = #const CUDD_OUT_OF_MEM
-
-foreign import ccall "cudd_wrappers.h cw_read_error_code" cw_read_error_code
-  :: MgrP -> IO Cudd_ErrorType
-
-foreign import ccall "cudd_wrappers.h cw_clear_error_code" cw_clear_error_code
-  :: MgrP -> IO ()
-
-data CuddException
-  = CuddNoError
-  | CuddMemoryOut
-  | CuddTooManyNodes
-  | CuddMaxMemExceeded
-  | CuddTimeoutExpired
-  | CuddInvalidArg
-  | CuddInternalError
-  deriving (Eq, Ord, Show, Typeable)
-
-instance Exception CuddException
-
-toCuddException :: Cudd_ErrorType -> CuddException
-toCuddException err
-  | err == cudd_no_error         = CuddNoError
-  | err == cudd_memory_out       = CuddMemoryOut
-  | err == cudd_too_many_nodes   = CuddTooManyNodes
-  | err == cudd_max_mem_exceeded = CuddMaxMemExceeded
-  | err == cudd_timeout_expired  = CuddTimeoutExpired
-  | err == cudd_invalid_arg      = CuddInvalidArg
-  | err == cudd_internal_error   = CuddInternalError
-  | otherwise = error "Cudd.Raw.toCuddException: bad Cudd_ErrorType!"
 
 
 
@@ -421,3 +436,6 @@ bddToBool bdd = do
 cintToBool :: CInt -> Bool
 cintToBool 0 = False
 cintToBool _ = True
+
+isPermutationOf :: [Int] -> Int -> Bool
+isPermutationOf vs n = sort vs == [1..n]

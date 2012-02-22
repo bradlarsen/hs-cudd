@@ -22,6 +22,8 @@ int cw_reordering_reporting (Mgr *mgr);
 void cw_autodyn_enable (Mgr *mgr, Cudd_ReorderingType method);
 void cw_autodyn_disable (Mgr *mgr);
 
+int cw_shuffle_heap (Mgr *mgr, int *permutation);
+
 typedef struct Bdd Bdd;
 void cw_bdd_destroy (Bdd *bdd);
 /* IDEA: we could add a cw_bdd_deref operation that dereferences the contained

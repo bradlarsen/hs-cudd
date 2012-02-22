@@ -77,6 +77,12 @@ void cw_autodyn_disable (Mgr *mgr)
     Cudd_AutodynDisable (mgr_ddmanager (mgr));
 }
 
+int cw_shuffle_heap (Mgr *mgr, int *permutation)
+{
+    assert (mgr_good (mgr));
+    return Cudd_ShuffleHeap (mgr_ddmanager (mgr), permutation);
+}
+
 
 struct Bdd
 {
