@@ -100,18 +100,6 @@ DdManager * cw_bdd_ddmanager (Bdd *b)
     return mgr_ddmanager (bdd_mgr (b));
 }
 
-Cudd_ErrorType cw_read_error_code (Mgr *mgr)
-{
-    assert (mgr_good (mgr));
-    return Cudd_ReadErrorCode (mgr_ddmanager (mgr));
-}
-
-void cw_clear_error_code (Mgr *mgr)
-{
-    assert (mgr_good (mgr));
-    Cudd_ClearErrorCode (mgr_ddmanager (mgr));
-}
-
 Bdd * cw_read_one (Mgr *mgr)
 {
     assert (mgr_good (mgr));
@@ -128,25 +116,6 @@ Bdd * cw_bdd_ith_var (Mgr *mgr, unsigned i)
 {
     assert (mgr_good (mgr));
     return bdd_create (mgr, Cudd_bddIthVar (mgr_ddmanager (mgr), i));
-}
-
-int cw_bdd_is_one (Bdd *b)
-{
-    assert (bdd_good (b));
-    return bdd_ddnode (b) == Cudd_ReadOne (bdd_ddmanager (b));
-}
-
-int cw_bdd_is_logic_zero (Bdd *b)
-{
-    assert (bdd_good (b));
-    return bdd_ddnode (b) == Cudd_ReadLogicZero (bdd_ddmanager (b));
-}
-
-int cw_bdd_equal (Bdd *b1, Bdd *b2)
-{
-    assert (bdd_good (b1));
-    assert (bdd_good (b2));
-    return bdd_ddnode (b1) == bdd_ddnode (b2);
 }
 
 Bdd * cw_bdd_not (Bdd *bdd)
@@ -195,17 +164,4 @@ Bdd * cw_bdd_compose (Bdd *b1, Bdd *b2, unsigned v)
     return bdd_create (bdd_mgr (b1),
                        Cudd_bddCompose (bdd_ddmanager (b1), bdd_ddnode (b1),
                                         bdd_ddnode (b2), v));
-}
-
-unsigned cw_bdd_size (Bdd *b)
-{
-    assert (bdd_good (b));
-    return Cudd_DagSize (bdd_ddnode (b));
-}
-
-int cw_bdd_pick_one_cube (Bdd *b, char *varsOut)
-{
-    assert (bdd_good (b));
-    assert (varsOut);
-    return Cudd_bddPickOneCube (bdd_ddmanager (b), bdd_ddnode (b), varsOut);
 }

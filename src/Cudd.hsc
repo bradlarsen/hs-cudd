@@ -251,11 +251,11 @@ newtype Cudd_ErrorType = Cudd_ErrorType CInt
 cUDD_OUT_OF_MEM :: CInt
 cUDD_OUT_OF_MEM = #const CUDD_OUT_OF_MEM
 
-foreign import ccall "cudd_wrappers.h cw_read_error_code" cw_read_error_code
-  :: MgrP -> IO Cudd_ErrorType
+foreign import ccall "cudd.h Cudd_ReadErrorCode" cudd_ReadErrorCode
+  :: DdManagerP -> IO Cudd_ErrorType
 
--- foreign import ccall "cudd_wrappers.h cw_clear_error_code" cw_clear_error_code
---   :: MgrP -> IO ()
+foreign import ccall "cudd.h Cudd_ClearErrorCode" cudd_ClearErrorCode
+  :: DdManagerP -> IO ()
 
 data CuddException
   = CuddNoError
@@ -293,13 +293,17 @@ type DdNodeP = Ptr DdNodeT
 withBdd :: Bdd -> (BddP -> IO a) -> IO a
 withBdd = withForeignPtr . unBdd
 
+withDdNode :: Bdd -> (DdNodeP -> IO a) -> IO a
+withDdNode b f = withBdd b (cw_bdd_ddnode >=> f)
+
 foreign import ccall "cudd_wrappers.h &cw_bdd_destroy" cw_bdd_destroy_p
   :: FunPtr (BddP -> IO ())
 
-mkBdd :: MgrP -> BddP -> IO Bdd
-mkBdd mgr bdd = do
+mkBdd :: BddP -> IO Bdd
+mkBdd bdd = do
   when (bdd == nullPtr) $ do
-    err <- cw_read_error_code mgr
+    err <- cudd_ReadErrorCode =<< cw_bdd_ddmanager bdd
+    cudd_ClearErrorCode =<< cw_bdd_ddmanager bdd
     throw (toCuddException err)
   Bdd <$> newForeignPtr cw_bdd_destroy_p bdd
 
@@ -312,10 +316,10 @@ foreign import ccall "cudd_wrappers.h cw_bdd_ddmanager" cw_bdd_ddmanager
 foreign import ccall "cudd_wrappers.h cw_bdd_ddnode" cw_bdd_ddnode
   :: BddP -> IO DdNodeP
 
-foreign import ccall "cudd_wrappers.h cw_bdd_size" cw_bdd_size
-  :: BddP -> IO CUInt
+foreign import ccall "cudd.h Cudd_DagSize" cudd_DagSize
+  :: DdNodeP -> IO CUInt
 bddNumNodes :: Bdd -> IO Int
-bddNumNodes bdd = fromIntegral <$> withBdd bdd cw_bdd_size
+bddNumNodes bdd = fromIntegral <$> withDdNode bdd cudd_DagSize
 
 -- It is generally wrong to mix BDDs from separate managers; this function
 -- checks that two BDDs have the same manager.
@@ -329,28 +333,21 @@ checkSameManager b1 b2 =
 
 
 
-foreign import ccall "cudd_wrappers.h cw_bdd_equal" cw_bdd_equal
-  :: BddP -> BddP -> IO CInt
 bddEqual :: Bdd -> Bdd -> IO Bool
 bddEqual b1 b2 = do
   checkSameManager b1 b2
-  withBdd b1 $ \b1p ->
-    withBdd b2 $ \b2p ->
-      liftM (/= 0) (cw_bdd_equal b1p b2p)
+  withDdNode b1 $ \b1p ->
+    withDdNode b2 $ \b2p -> return (b1p == b2p)
 
 foreign import ccall "cudd_wrappers.h cw_read_one" cw_read_one
   :: MgrP -> IO BddP
 bddTrue :: Mgr -> IO Bdd
-bddTrue mgr =
-  withMgr mgr $ \mgr ->
-    (cw_read_one mgr >>= mkBdd mgr)
+bddTrue mgr = withMgr mgr (cw_read_one >=> mkBdd)
 
 foreign import ccall "cudd_wrappers.h cw_read_logic_zero" cw_read_logic_zero
   :: MgrP -> IO BddP
 bddFalse :: Mgr -> IO Bdd
-bddFalse mgr =
-  withMgr mgr $ \mgr ->
-    (cw_read_logic_zero mgr >>= mkBdd mgr)
+bddFalse mgr = withMgr mgr (cw_read_logic_zero >=> mkBdd)
 
 foreign import ccall "cudd_wrappers.h cw_bdd_ith_var" cw_bdd_ith_var
   :: MgrP -> CUInt -> IO BddP
@@ -358,22 +355,19 @@ bddIthVar :: Mgr -> Int -> IO Bdd
 bddIthVar mgr i
   | i < 0     = error "Cudd.bddIthVar: negative i"
   | otherwise = withMgr mgr $ \mgr ->
-                  (cw_bdd_ith_var mgr (fromIntegral i) >>= mkBdd mgr)
+                  cw_bdd_ith_var mgr (fromIntegral i) >>= mkBdd
 
 binop :: (BddP -> BddP -> IO BddP) -> Bdd -> Bdd -> IO Bdd
 binop f = \b1 b2 -> do
   checkSameManager b1 b2
   withBdd b1 $ \b1 -> do
     withBdd b2 $ \b2 -> do
-      mgr <- cw_bdd_mgr b1
-      mkBdd mgr =<< f b1 b2
+      f b1 b2 >>= mkBdd
 
 foreign import ccall "cudd_wrappers.h cw_bdd_not" cw_bdd_not
   :: BddP -> IO BddP
 bddNot :: Bdd -> IO Bdd
-bddNot b = withBdd b $ \b -> do
-  mgr <- cw_bdd_mgr b
-  mkBdd mgr =<< cw_bdd_not b
+bddNot b = withBdd b (cw_bdd_not >=> mkBdd)
 
 foreign import ccall "cudd_wrappers.h cw_bdd_and" cw_bdd_and
   :: BddP -> BddP -> IO BddP
@@ -436,14 +430,15 @@ bddCountMinterms b = withBdd b $ \b -> do
 data VarAssign = Positive | Negative | DoNotCare
   deriving (Eq, Ord, Read, Show)
 
-foreign import ccall "cudd_wrappers.h cw_bdd_pick_one_cube" cw_bdd_pick_one_cube
-  :: BddP -> Ptr CChar -> IO CInt
+foreign import ccall "cudd.h Cudd_bddPickOneCube" cudd_bddPickOneCube
+  :: DdManagerP -> DdNodeP -> Ptr CChar -> IO CInt
 bddPickOneMinterm :: Bdd -> IO (Maybe [(Int, VarAssign)])
 bddPickOneMinterm b = withBdd b $ \b -> do
   ddmanager <- cw_bdd_ddmanager b
   numVars <- fromIntegral <$> cudd_ReadSize ddmanager
   bracket (mallocArray numVars) free $ \arr -> do
-    rc <- cw_bdd_pick_one_cube b arr
+    ddnode <- cw_bdd_ddnode b
+    rc <- cudd_bddPickOneCube ddmanager ddnode arr
     if rc == 1
        then do values <- peekArray numVars arr
                liftM Just $ forM (zip [0..] values) $ \(idx, val) -> do
@@ -455,16 +450,18 @@ bddPickOneMinterm b = withBdd b $ \b -> do
        else return Nothing
 
 
-foreign import ccall "cudd_wrappers.h cw_bdd_is_one" cw_bdd_is_one
-  :: BddP -> IO CInt
-foreign import ccall "cudd_wrappers.h cw_bdd_is_logic_zero" cw_bdd_is_logic_zero
-  :: BddP -> IO CInt
+foreign import ccall "cudd.h Cudd_ReadLogicZero" cudd_ReadLogicZero
+  :: DdManagerP -> IO DdNodeP
+foreign import ccall "cudd.h Cudd_ReadOne" cudd_ReadOne
+  :: DdManagerP -> IO DdNodeP
 bddToBool :: Bdd -> IO Bool
-bddToBool bdd = do
-  isTrue <- withBdd bdd cw_bdd_is_one
-  if isTrue /= 0 then return True
-     else do isFalse <- withBdd bdd cw_bdd_is_logic_zero
-             if isFalse /= 0 then return False
+bddToBool bdd = withBdd bdd $ \bdd -> do
+  ddmanager <- cw_bdd_ddmanager bdd
+  ddnode <- cw_bdd_ddnode bdd
+  isTrue <- (ddnode ==) <$> cudd_ReadOne ddmanager
+  if isTrue then return True
+     else do isFalse <- (ddnode ==) <$> cudd_ReadLogicZero ddmanager
+             if isFalse then return False
                 else error "Cudd.bddToBool: non-terminal value"
 
 
