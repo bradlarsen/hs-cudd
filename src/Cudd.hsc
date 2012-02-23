@@ -62,13 +62,15 @@ module Cudd
   , bddCountMinterms
   , VarAssign (..)
   , bddPickOneMinterm
+
+  , bddToDot
   ) where
 
-import Foreign (nullPtr, Ptr, FunPtr)
-import Foreign.C.Types (CInt, CUInt, CDouble, CChar, CLong)
-import Foreign.ForeignPtr (ForeignPtr, newForeignPtr, withForeignPtr)
-import Foreign.Marshal.Alloc (free)
-import Foreign.Marshal.Array (mallocArray, peekArray, withArray)
+import ForeignHandle (handleToCFile, fclose)
+
+import Foreign (nullPtr, Ptr, FunPtr, ForeignPtr, newForeignPtr, withForeignPtr)
+import Foreign.C (CInt, CUInt, CDouble, CChar, CLong, CString, CFile, withCString)
+import Foreign.Marshal (free, mallocArray, peekArray, withArray, withArrayLen, withMany, toBool)
 
 import Control.Applicative ((<$>))
 import Control.Exception (Exception, throw, bracket)
@@ -77,7 +79,7 @@ import Data.List (sort)
 import Data.Typeable (Typeable)
 import Data.Word (Word)
 
-import System.IO (stderr)
+import System.IO (stderr, Handle)
 import System.Mem (performGC)
 import Text.Printf (hPrintf)
 
@@ -209,7 +211,7 @@ disableReorderingReporting mgr = withDdManager mgr $ \ddmanager -> do
 foreign import ccall "cudd.h Cudd_ReorderingReporting" cudd_ReorderingReporting
   :: DdManagerP -> IO CInt
 reorderingReporting :: Mgr -> IO Bool
-reorderingReporting mgr = cintToBool <$> withDdManager mgr cudd_ReorderingReporting
+reorderingReporting mgr = toBool <$> withDdManager mgr cudd_ReorderingReporting
 
 foreign import ccall "cudd.h Cudd_AutodynEnable" cudd_AutodynEnable
   :: DdManagerP -> Cudd_ReorderingType -> IO ()
@@ -331,6 +333,10 @@ checkSameManager b1 b2 =
       mgr2 <- cw_bdd_mgr pb2
       when (mgr1 /= mgr2) $ error "Cudd.checkSameManager: different managers"
 
+checkAllSameManager :: [Bdd] -> IO ()
+checkAllSameManager (b1 : b2 : bs) =
+  checkSameManager b1 b2 >> checkAllSameManager (b2 : bs)
+checkAllSameManager _ = return ()
 
 
 bddEqual :: Bdd -> Bdd -> IO Bool
@@ -465,9 +471,43 @@ bddToBool bdd = withBdd bdd $ \bdd -> do
                 else error "Cudd.bddToBool: non-terminal value"
 
 
-cintToBool :: CInt -> Bool
-cintToBool 0 = False
-cintToBool _ = True
+foreign import ccall "cudd.h Cudd_DumpDot" cudd_DumpDot
+  :: DdManagerP -> CInt -> Ptr DdNodeP -> Ptr CString -> Ptr CString
+  -> Ptr CFile -> IO CInt
+
+withDdNodeArrayLen :: [Bdd] -> (Int -> Ptr DdNodeP -> IO a) -> IO a
+withDdNodeArrayLen bdds f =
+  withMany withDdNode bdds $ \ddnodes ->
+    withArrayLen ddnodes $ \n arr ->
+      f n arr
+
+withCStringArray :: [String] -> (Ptr CString -> IO a) -> IO a
+withCStringArray ss f = withMany withCString ss $ flip withArray f
+
+withCStringArrayLen :: [String] -> (Int -> Ptr CString -> IO a) -> IO a
+withCStringArrayLen ss f =
+  withMany withCString ss $ \ss' -> withArrayLen ss' f
+
+-- TODO: eliminate Mgr argument; check Bdds for same mgr; check input name length
+bddToDot :: [(Bdd, String)] -> [String] -> Handle -> IO ()
+bddToDot [] _inputNames _hOut = error "Cudd.bddToDot: no BDDs given"
+bddToDot roots inputNames hOut = do
+  let (bdds, outputNames) = unzip roots
+  checkAllSameManager bdds
+  withBdd (head bdds) $ \bdd -> do
+    ddmanager <- cw_bdd_ddmanager bdd
+    withDdNodeArrayLen bdds $ \n ddNodeArr ->
+      withCStringArrayLen inputNames $ \inputNameArrLen inputNameArr -> do
+        nvs <- fromIntegral <$> cudd_ReadSize ddmanager
+        when (inputNameArrLen /= nvs) $ do
+          error "Cudd.bddToDot: not enough input names!\n"
+        withCStringArray outputNames $ \outputNameArr ->
+          bracket (handleToCFile hOut "w") fclose $ \hCFileP -> do
+            res <- cudd_DumpDot ddmanager (fromIntegral n) ddNodeArr
+                                inputNameArr outputNameArr hCFileP
+            when (res /= 1) $ do
+              error "Cudd.bddToDot: call failed"
+
 
 isPermutationOf :: [Int] -> Int -> Bool
-isPermutationOf vs n = sort vs == [1..n]
+isPermutationOf vs n = sort vs == [0..n-1]
