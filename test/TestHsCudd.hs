@@ -1,3 +1,5 @@
+-- Some unit tests & property tests for the BDD library.
+-- This could use some cleanup.  And more properties!
 module Main where
 
 import Cudd
@@ -128,6 +130,7 @@ prop_reorderSymbolicEvaluation prop = monadicIO $ do
           return (truthiness == bddTruthiness)
   assert ok
 
+-- This isn't named so well.
 prop_reorderIdempotent :: Prop.Prop -> Property
 prop_reorderIdempotent prop = monadicIO $ do
   let mv = maxVar prop
