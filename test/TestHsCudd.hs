@@ -5,16 +5,17 @@ import Prop
 
 import Control.Monad (forM_, forM, liftM, foldM, when)
 import Data.IORef (newIORef, readIORef, writeIORef)
+import Data.List (delete)
 import Data.Maybe (fromJust, isJust)
 import System.Exit (exitFailure, exitSuccess)
-import System.IO (stderr)
+import System.IO (stderr, hPrint)
 import Text.Printf (hPrintf, printf)
 
 import Test.QuickCheck
   (Property, quickCheckWithResult, stdArgs, Args (maxSuccess, maxDiscard),
    Testable, (==>), forAll, choose, Positive (Positive),
-   listOf, Result (Failure, NoExpectedFailure))
-import Test.QuickCheck.Monadic (monadicIO, assert, run)
+   listOf, Result (Failure, NoExpectedFailure), elements, Gen)
+import Test.QuickCheck.Monadic (monadicIO, assert, run, pre, pick)
 
 import Test.HUnit (Test (TestCase, TestList), assertBool, errors, failures)
 import Test.HUnit.Text (runTestTT)
@@ -54,15 +55,14 @@ andForM (v : vs) f = do
   if v' then andForM vs f
         else return False
 
-bddProp :: IO Bool -> Property
+bddProp :: (Mgr -> IO Bool) -> Property
 bddProp act = monadicIO $ do
-  ok <- run act
+  ok <- run (newMgr >>= act)
   run performGC
   assert ok
 
 prop_symbolicEvaluation :: Prop.Prop -> Property
-prop_symbolicEvaluation prop = bddProp $ do
-  mgr     <- newMgr
+prop_symbolicEvaluation prop = bddProp $ \mgr -> do
   propBdd <- synthesizeBdd mgr prop
   andForM (assignments $ vars prop) $ \ass -> do
     let truthiness = eval ass prop
@@ -70,12 +70,12 @@ prop_symbolicEvaluation prop = bddProp $ do
     return (truthiness == bddTruthiness)
 
 prop_projectionFunSize :: Property
-prop_projectionFunSize = forAll (choose (0, 100000)) $ \idx -> bddProp $ do
-  mgr <- newMgr
-  idxBdd <- bddIthVar mgr idx
-  idxBddNumNodes <- bddNumNodes idxBdd
-  size <- numNodes mgr
-  return (idxBddNumNodes == 2 && size == 2)
+prop_projectionFunSize =
+  forAll (choose (0, 100000)) $ \idx -> bddProp $ \mgr -> do
+    idxBdd <- bddIthVar mgr idx
+    idxBddNumNodes <- bddNumNodes idxBdd
+    size <- numNodes mgr
+    return (idxBddNumNodes == 2 && size == 2)
 
 mkCube :: Mgr -> [Bdd] -> IO Bdd
 mkCube mgr vs = do
@@ -84,8 +84,7 @@ mkCube mgr vs = do
 
 prop_existAbstract :: Prop.Prop -> Property
 prop_existAbstract prop = let mv = maxVar prop in isJust mv ==>
-  forAll (listOf $ choose (0, fromJust mv)) $ \vars -> bddProp $ do
-    mgr <- newMgr
+  forAll (listOf $ choose (0, fromJust mv)) $ \vars -> bddProp $ \mgr -> do
     p   <- synthesizeBdd mgr prop
     vs  <- mapM (bddIthVar mgr) vars
     let exist p v = do pv  <- bddRestrict p v
@@ -97,8 +96,7 @@ prop_existAbstract prop = let mv = maxVar prop in isJust mv ==>
 
 prop_univAbstract :: Prop.Prop -> Property
 prop_univAbstract prop = let mv = maxVar prop in isJust mv ==>
-  forAll (listOf $ choose (0, fromJust mv)) $ \vars -> bddProp $ do
-    mgr <- newMgr
+  forAll (listOf $ choose (0, fromJust mv)) $ \vars -> bddProp $ \mgr -> do
     p   <- synthesizeBdd mgr prop
     vs  <- mapM (bddIthVar mgr) vars
     let univ p v = do pv  <- bddRestrict p v
@@ -107,6 +105,41 @@ prop_univAbstract prop = let mv = maxVar prop in isJust mv ==>
     ex' <- foldM univ p vs
     ex  <- bddUnivAbstract p =<< mkCube mgr vs
     bddEqual ex ex'
+
+permutation :: (Eq a) => [a] -> Gen [a]
+permutation =
+  let loop perm [] = return perm
+      loop perm vals = do
+        val <- elements vals
+        loop (val : perm) (delete val vals)
+  in loop []
+
+prop_reorderSymbolicEvaluation :: Prop.Prop -> Property
+prop_reorderSymbolicEvaluation prop = monadicIO $ do
+  let mv = maxVar prop
+  pre (isJust mv && fromJust mv <= 10)
+  mgr <- run newMgr
+  propBdd <- run $ synthesizeBdd mgr prop
+  perm <- pick (permutation [0..fromJust mv])
+  run $ reorderVariables mgr perm
+  ok <- run $ andForM (assignments $ vars prop) $ \ass -> do
+          let truthiness = eval ass prop
+          bddTruthiness <- evalBdd ass mgr propBdd
+          return (truthiness == bddTruthiness)
+  assert ok
+
+prop_reorderIdempotent :: Prop.Prop -> Property
+prop_reorderIdempotent prop = monadicIO $ do
+  let mv = maxVar prop
+  pre (isJust mv && fromJust mv <= 10)
+  mgr <- run newMgr
+  propBdd <- run $ synthesizeBdd mgr prop
+  perm <- pick (permutation [0..fromJust mv])
+  run $ reorderVariables mgr perm
+  propBdd' <- run $ synthesizeBdd mgr prop
+  ok <- run (bddEqual propBdd propBdd')
+  assert ok
+
 
 main :: IO ()
 main = do
@@ -128,6 +161,8 @@ main = do
                           _                    -> return ()
 
   qc "prop_symbolicEvaluation" prop_symbolicEvaluation
+  qc "prop_reorderSymbolicEvaluation" prop_reorderSymbolicEvaluation
+  qc "prop_reorderIdempotent" prop_reorderIdempotent
   qc "prop_projectionFunSize" prop_projectionFunSize
   qc "prop_existAbstract" prop_existAbstract
   qc "prop_univAbstract" prop_univAbstract
