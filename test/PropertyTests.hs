@@ -5,7 +5,8 @@ module Main where
 import Cudd
 import Prop
 
-import Control.Monad (forM_, forM, liftM, foldM, when)
+import Control.Applicative ((<$>), (<*>))
+import Control.Monad (forM_, forM, liftM, foldM, when, join)
 import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.List (delete)
 import Data.Maybe (fromJust, isJust)
@@ -19,35 +20,7 @@ import Test.QuickCheck
    listOf, Result (Failure, NoExpectedFailure), elements, Gen)
 import Test.QuickCheck.Monadic (monadicIO, assert, run, pre, pick)
 
-import Test.HUnit (Test (TestCase, TestList), assertBool, errors, failures)
-import Test.HUnit.Text (runTestTT)
-
 import System.Mem (performGC)
-
-
-unitTests :: Test
-unitTests = TestList [
-    TestCase $ do
-      mgr     <- newMgr
-      true    <- bddTrue mgr
-      false   <- bddFalse mgr
-      true'   <- bddNot true
-      false'  <- bddNot false
-      true''  <- bddNot true'
-      false'' <- bddNot false'
-      assertBool "true /= false" =<< liftM not (bddEqual true false)
-      assertBool "~ true == false" =<< bddEqual true' false
-      assertBool "~ false == true" =<< bddEqual false' true
-      assertBool "~ ~ false == false" =<< bddEqual false'' false
-      assertBool "~ ~ true == true" =<< bddEqual true'' true
-  , TestCase $ do
-      mgr    <- newMgr
-      true   <- bddTrue mgr
-      false  <- bddFalse mgr
-      result <- bddRestrict true false
-      assertBool "result /= true" =<< liftM not (bddEqual true result)
-      assertBool "result == false" =<< bddEqual false result
-  ]
 
 
 andForM :: (Monad m) => [a] -> (a -> m Bool) -> m Bool
@@ -80,33 +53,24 @@ prop_projectionFunSize =
     return (idxBddNumNodes == 2 && size == 2)
 
 mkCube :: Mgr -> [Bdd] -> IO Bdd
-mkCube mgr vs = do
-  true <- bddTrue mgr
-  foldM bddAnd true vs
+mkCube mgr [] = bddTrue mgr
+mkCube mgr (v : vs) = foldM bddAnd v vs
 
 prop_existAbstract :: Prop.Prop -> Property
 prop_existAbstract prop = let mv = maxVar prop in isJust mv ==>
   forAll (listOf $ choose (0, fromJust mv)) $ \vars -> bddProp $ \mgr -> do
     p   <- synthesizeBdd mgr prop
     vs  <- mapM (bddIthVar mgr) vars
-    let exist p v = do pv  <- bddRestrict p v
-                       pv' <- bddRestrict p =<< bddNot v
-                       bddOr pv pv'
-    ex' <- foldM exist p vs
-    ex  <- bddExistAbstract p =<< mkCube mgr vs
-    bddEqual ex ex'
+    let exist p v = join $ bddOr <$> bddRestrict p v <*> (bddRestrict p =<< bddNot v)
+    join $ bddEqual <$> foldM exist p vs <*> (bddExistAbstract p =<< mkCube mgr vs)
 
 prop_univAbstract :: Prop.Prop -> Property
 prop_univAbstract prop = let mv = maxVar prop in isJust mv ==>
   forAll (listOf $ choose (0, fromJust mv)) $ \vars -> bddProp $ \mgr -> do
     p   <- synthesizeBdd mgr prop
     vs  <- mapM (bddIthVar mgr) vars
-    let univ p v = do pv  <- bddRestrict p v
-                      pv' <- bddRestrict p =<< bddNot v
-                      bddAnd pv pv'
-    ex' <- foldM univ p vs
-    ex  <- bddUnivAbstract p =<< mkCube mgr vs
-    bddEqual ex ex'
+    let univ p v = join $ bddAnd <$> bddRestrict p v <*> (bddRestrict p =<< bddNot v)
+    join $ bddEqual <$> foldM univ p vs <*> (bddUnivAbstract p =<< mkCube mgr vs)
 
 permutation :: (Eq a) => [a] -> Gen [a]
 permutation =
@@ -147,13 +111,6 @@ prop_reorderIdempotent prop = monadicIO $ do
 main :: IO ()
 main = do
   failed <- newIORef False
-
-  putStrLn "### HUnit tests ###"
-  counts <- runTestTT unitTests
-  when (errors counts /= 0 || failures counts /= 0) $ do
-    writeIORef failed True
-
-  putStrLn "### QuickCheck tests ###"
   let conf = stdArgs { maxSuccess = 100, maxDiscard = 1000 }
   let qc :: Testable p => String -> p -> IO ()
       qc name prop = do printf "%s: " name
