@@ -38,10 +38,10 @@ prop_symbolicEvaluation = monadicIO $ do
 prop_symbolicEvaluationSame :: Property
 prop_symbolicEvaluationSame = monadicIO $ do
   prop <- pick arbitrary
-  mgr  <- run newMgr
-  bdd  <- run $ synthesizeBdd mgr prop
-  bdd' <- run $ synthesizeBdd mgr prop
-  eq   <- run $ bddEqual bdd bdd'
+  eq   <- run $ do mgr  <- newMgr
+                   bdd  <- synthesizeBdd mgr prop
+                   bdd' <- synthesizeBdd mgr prop
+                   bddEqual bdd bdd'
   assert eq
   run performGC
 
