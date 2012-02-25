@@ -6,6 +6,7 @@ module Main (main) where
 
 import Cudd
 import Prop
+import PropToBdd
 
 import Control.Applicative ((<$>), (<*>))
 import Control.Monad ((>=>), (<=<), forM_, forM, foldM, guard)

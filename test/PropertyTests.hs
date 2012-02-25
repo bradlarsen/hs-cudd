@@ -4,6 +4,8 @@ module Main where
 
 import Cudd
 import Prop
+import PropGenerators
+import PropToBdd
 
 import Control.Applicative ((<$>), (<*>))
 import Control.Monad (forM_, forM, liftM, foldM, when, join)
