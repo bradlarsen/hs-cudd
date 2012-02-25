@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 module PropGenerators
-  (
+  ( arbitraryPropWithVarsAndSize
+  , arbitraryPropWithVars
   ) where
 
 import Prop
@@ -9,11 +10,13 @@ import Control.Applicative ((<$>), (<*>))
 import Test.QuickCheck (Arbitrary, arbitrary, shrink, Gen, oneof, elements,
                         frequency, choose, shrinkIntegral, vectorOf, sized)
 
--- | Generate an arbitrary proposition using the given values for variables and
--- the given size.
-arbitraryProp :: [a] -> Int -> Gen (Prop a)
-arbitraryProp [] = const $ elements [PFalse, PTrue]
-arbitraryProp vars = go
+-- | Generate an arbitrary proposition.
+arbitraryPropWithVarsAndSize
+  :: [a]            -- ^ the values to use for variables
+  -> Int            -- ^ the size of the generated proposition in number of constructors
+  -> Gen (Prop a)
+arbitraryPropWithVarsAndSize [] = const $ elements [PFalse, PTrue]
+arbitraryPropWithVarsAndSize vars = go
   where
     go maxNodes = if maxNodes <= 1 then term else nonterm
       where
@@ -23,6 +26,9 @@ arbitraryProp vars = go
         bin cons = do s1 <- choose (1, maxNodes - 1)
                       let s2 = maxNodes - s1
                       cons <$> go s1 <*> go s2
+
+arbitraryPropWithVars :: [a] -> Gen (Prop a)
+arbitraryPropWithVars = sized . arbitraryPropWithVarsAndSize
 
 boundShrinkProp :: (Ord a, Arbitrary a) => Int -> Prop a -> [Prop a]
 boundShrinkProp bound prop
@@ -51,5 +57,5 @@ instance Arbitrary (Prop Int) where
     nVars <- choose (0, 10)
     maxVar <- choose (nVars, 100)
     indexes <- vectorOf nVars (choose (0, maxVar))
-    sized $ arbitraryProp indexes
+    arbitraryPropWithVars indexes
   shrink = boundShrinkProp 1
