@@ -36,7 +36,7 @@ bddProp act = monadicIO $ do
   run performGC
   assert ok
 
-prop_symbolicEvaluation :: Prop.Prop -> Property
+prop_symbolicEvaluation :: Prop.Prop Int -> Property
 prop_symbolicEvaluation prop = bddProp $ \mgr -> do
   propBdd <- synthesizeBdd mgr prop
   andForM (assignments $ vars prop) $ \ass -> do
@@ -56,7 +56,7 @@ mkCube :: Mgr -> [Bdd] -> IO Bdd
 mkCube mgr [] = bddTrue mgr
 mkCube mgr (v : vs) = foldM bddAnd v vs
 
-prop_existAbstract :: Prop.Prop -> Property
+prop_existAbstract :: Prop.Prop Int -> Property
 prop_existAbstract prop = let mv = maxVar prop in isJust mv ==>
   forAll (listOf $ choose (0, fromJust mv)) $ \vars -> bddProp $ \mgr -> do
     p   <- synthesizeBdd mgr prop
@@ -64,7 +64,7 @@ prop_existAbstract prop = let mv = maxVar prop in isJust mv ==>
     let exist p v = join $ bddOr <$> bddRestrict p v <*> (bddRestrict p =<< bddNot v)
     join $ bddEqual <$> foldM exist p vs <*> (bddExistAbstract p =<< mkCube mgr vs)
 
-prop_univAbstract :: Prop.Prop -> Property
+prop_univAbstract :: Prop.Prop Int -> Property
 prop_univAbstract prop = let mv = maxVar prop in isJust mv ==>
   forAll (listOf $ choose (0, fromJust mv)) $ \vars -> bddProp $ \mgr -> do
     p   <- synthesizeBdd mgr prop
@@ -80,7 +80,7 @@ permutation =
         loop (val : perm) (delete val vals)
   in loop []
 
-prop_reorderSymbolicEvaluation :: Prop.Prop -> Property
+prop_reorderSymbolicEvaluation :: Prop.Prop Int -> Property
 prop_reorderSymbolicEvaluation prop = monadicIO $ do
   let mv = maxVar prop
   pre (isJust mv && fromJust mv <= 10)
@@ -95,7 +95,7 @@ prop_reorderSymbolicEvaluation prop = monadicIO $ do
   assert ok
 
 -- This isn't named so well.
-prop_reorderIdempotent :: Prop.Prop -> Property
+prop_reorderIdempotent :: Prop.Prop Int -> Property
 prop_reorderIdempotent prop = monadicIO $ do
   let mv = maxVar prop
   pre (isJust mv && fromJust mv <= 10)

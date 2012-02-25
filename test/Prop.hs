@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 -- Sentences in propositional logic.
 module Prop
   ( Prop (..)
@@ -13,24 +14,24 @@ module Prop
 import qualified Cudd
 
 import Control.Monad (liftM, liftM2, foldM)
-import Data.IntSet (IntSet, empty, insert, union, member, toList, toAscList)
+import Data.Set (Set, empty, insert, union, member, toList, toAscList)
 import Test.QuickCheck (Arbitrary, arbitrary, shrink, Gen, oneof, elements,
                         frequency, choose, shrinkIntegral, vectorOf, sized)
 
-data Prop
+data Prop a
   = PFalse
   | PTrue
-  | PVar Int    -- really, a non-negative number, indicating variable x_i
-  | PNot Prop
-  | PAnd Prop Prop
-  | POr Prop Prop
-  | PXor Prop Prop
-  | PNand Prop Prop
-  | PNor Prop Prop
-  | PXnor Prop Prop
+  | PVar a
+  | PNot (Prop a)
+  | PAnd (Prop a) (Prop a)
+  | POr (Prop a) (Prop a)
+  | PXor (Prop a) (Prop a)
+  | PNand (Prop a) (Prop a)
+  | PNor (Prop a) (Prop a)
+  | PXnor (Prop a) (Prop a)
   deriving (Show, Eq)
 
-vars' :: Prop -> IntSet
+vars' :: (Ord a) => Prop a -> Set a
 vars' PFalse = empty
 vars' PTrue = empty
 vars' (PVar i) = insert i empty
@@ -42,15 +43,15 @@ vars' (PNand p1 p2) = union (vars' p1) (vars' p2)
 vars' (PNor p1 p2) = union (vars' p1) (vars' p2)
 vars' (PXnor p1 p2) = union (vars' p1) (vars' p2)
 
-vars :: Prop -> [Int]
+vars :: (Ord a) => Prop a -> [a]
 vars = toList . vars'
 
-maxVar :: Prop -> Maybe Int
+maxVar :: (Ord a) => Prop a -> Maybe a
 maxVar prop = case vars prop of
                 [] -> Nothing
                 vs -> Just (maximum vs)
 
-arbitraryProp :: [Int] -> Int -> Gen Prop
+arbitraryProp :: [a] -> Int -> Gen (Prop a)
 arbitraryProp [] = const $ elements [PFalse, PTrue]
 arbitraryProp vars = go
   where
@@ -63,15 +64,14 @@ arbitraryProp vars = go
                       let s2 = maxNodes - s1
                       liftM2 cons (go s1) (go s2)
 
-boundShrinkProp :: Int -> Prop -> [Prop]
+boundShrinkProp :: (Ord a, Arbitrary a) => Int -> Prop a -> [Prop a]
 boundShrinkProp bound prop
   | bound <= 0 = []
   | otherwise =
   case prop of
     PFalse      -> []
     PTrue       -> []
-    PVar i      -> [ PVar i' | i' <- shrinkIntegral i, i' >= 0 ] ++
-                   [ PFalse, PTrue ]
+    PVar i      -> [ PVar i' | i' <- shrink i ] ++ [ PFalse, PTrue ]
     PNot p      -> p : boundShrinkProp (pred bound) p ++
                    [ PNot p' | p' <- boundShrinkProp (pred bound) p ] ++
                    [ PFalse, PTrue ]
@@ -82,11 +82,11 @@ boundShrinkProp bound prop
     PNor p1 p2  -> bin PNor p1 p2
     PXnor p1 p2 -> bin PXnor p1 p2
   where
-    bin :: (Prop -> Prop -> Prop) -> Prop -> Prop -> [Prop]
     bin op p1 p2 = [ op p1' p2' | p1' <- boundShrinkProp (pred bound) p1
                                 , p2' <- boundShrinkProp (pred bound) p2 ] ++
                    [ p1, p2, PFalse, PTrue ]
-instance Arbitrary Prop where
+
+instance Arbitrary (Prop Int) where
   arbitrary = do
     nVars <- choose (0, 10)
     maxVar <- choose (nVars, 100)
@@ -95,16 +95,15 @@ instance Arbitrary Prop where
   shrink = boundShrinkProp 1
 
 -- An assignment of truth values to variables.  x_i is true <=> i is in the set.
-type Assignment = IntSet
+type Assignment a = Set a
 
--- | Constructs all possible assignments to the variables, which are denoted by
--- index.
-assignments :: [Int] -> [Assignment]
+-- | Constructs all possible assignments to the variables
+assignments :: Ord a => [a] -> [Assignment a]
 assignments [] = [empty]
 assignments (i : is) = concatMap assign (assignments is)
   where assign as = [ as, insert i as ]
 
-eval :: Assignment -> Prop -> Bool
+eval :: Ord a => Assignment a -> Prop a -> Bool
 eval assigns = eval'
   where eval' prop =
           case prop of
@@ -119,7 +118,7 @@ eval assigns = eval'
             PNor p1 p2  -> not (eval' p1) && not (eval' p2)
             PXnor p1 p2 -> eval' p1 == eval' p2
 
-evalBdd :: Assignment -> Cudd.Mgr -> Cudd.Bdd -> IO Bool
+evalBdd :: Assignment Int -> Cudd.Mgr -> Cudd.Bdd -> IO Bool
 evalBdd assigns mgr bdd = do
   numVars  <- Cudd.numVars mgr
   true     <- Cudd.bddTrue mgr
@@ -132,7 +131,7 @@ evalBdd assigns mgr bdd = do
   Cudd.bddToBool res
 
 -- | Synthesize the sentence of propositional logic into a BDD.
-synthesizeBdd :: Cudd.Mgr -> Prop -> IO Cudd.Bdd
+synthesizeBdd :: Cudd.Mgr -> Prop Int -> IO Cudd.Bdd
 synthesizeBdd mgr = synthesizeBdd'
   where
     synthesizeBdd' prop =

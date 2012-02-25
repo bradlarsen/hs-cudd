@@ -13,7 +13,7 @@ import System.Exit (exitFailure, exitSuccess)
 import System.IO (stderr)
 import Text.Printf (printf, hPrintf)
 
-modelNQueens :: Int -> Prop
+modelNQueens :: Int -> Prop Int
 modelNQueens n =
     conjoin ([ atLeastOneInRow i | i <- [0..n-1] ] ++
              [ safe (i, j) | i <- [0..n-1], j <- [0..n-1] ])
