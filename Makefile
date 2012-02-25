@@ -1,10 +1,12 @@
+PATH := $(HOME)/Library/Haskell/bin:$(HOME)/bin:/opt/local/bin:$(PATH)
+
 .PHONY: all install test tags clean
 
 all: tags install test
 
 tags:
-	find . -iname '*.hs' -o -iname '*.hsc' | xargs hasktags --ctags
-	find . -iname '*.[ch]' -o -iname '*.cpp' | xargs ctags --append --sort=yes
+	find . -iname '*.hs' -o -iname '*.hsc' -o -iname '*.lhs' | xargs hasktags --ctags -x -f .tags
+	ctags -R --append=yes -f .tags
 
 install:
 	cabal install
