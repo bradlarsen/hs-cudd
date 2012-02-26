@@ -235,7 +235,8 @@ reorderVariables :: Mgr -> [Int] -> IO ()
 reorderVariables mgr permutation = withDdManager mgr $ \ddmanager -> do
   numVars <- fromIntegral <$> cudd_ReadSize ddmanager
   unless (permutation `isPermutationOf` numVars) $ do
-    error "Cudd.reorderVariables: input is not a permutation"
+    error ("Cudd.reorderVariables: " ++ show permutation ++
+           " is not a permutation of [0.." ++ show (numVars - 1) ++ "]")
   withArray (map fromIntegral permutation) $ \permutation' -> do
     res <- cudd_ShuffleHeap ddmanager permutation'
     when (res /= 1) $ do
