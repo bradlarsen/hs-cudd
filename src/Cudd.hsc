@@ -79,9 +79,8 @@ import Data.List (sort)
 import Data.Typeable (Typeable)
 import Data.Word (Word)
 
-import System.IO (stderr, Handle)
+import System.IO (Handle)
 import System.Mem (performGC)
-import Text.Printf (hPrintf)
 
 #include "cudd_wrappers.h"
 
@@ -111,19 +110,11 @@ newMgr = do
   mgr <- cw_init
   ddmanager <- cw_mgr_ddmanager mgr
   let checkRC rc = when (rc /= 1) $ error "failed to add hook"
-  let numNodes :: IO Int
-      numNodes = fromIntegral <$> cudd_ReadNodeCount ddmanager
-  preGC  <- wrapHook $ \_mgr _str _env -> do
-              _ <- hPrintf stderr "CUDD garbage collection: %d --> " =<< numNodes
-              performGC
-              return 1
-  cudd_AddHook ddmanager preGC cudd_pre_gc_hook >>= checkRC
-  postGC <- wrapHook $ \_mgr _str _env -> do
-              _ <- hPrintf stderr "%d nodes\n" =<< numNodes
-              return 1
-  cudd_AddHook ddmanager postGC cudd_post_gc_hook >>= checkRC
+  preGC <- wrapHook $ \_mgr _str _env -> performGC >> return 1
+  checkRC =<< addHook' ddmanager PreGC preGC
   -- TODO:  we should call [freeHaskellFunPtr] on the callbacks when finished
   Mgr <$> newForeignPtr cw_quit_p mgr
+
 
 
 newtype Cudd_HookType = Cudd_HookType CInt
@@ -131,19 +122,33 @@ newtype Cudd_HookType = Cudd_HookType CInt
 #{enum Cudd_HookType, Cudd_HookType
  , cudd_pre_gc_hook          = CUDD_PRE_GC_HOOK
  , cudd_post_gc_hook         = CUDD_POST_GC_HOOK
+ , cudd_pre_reordering_hook  = CUDD_PRE_REORDERING_HOOK
+ , cudd_post_reordering_hook = CUDD_POST_REORDERING_HOOK
  }
--- , cudd_pre_reordering_hook  = CUDD_PRE_REORDERING_HOOK
--- , cudd_post_reordering_hook = CUDD_POST_REORDERING_HOOK
--- }
 
 -- typedef int (*DD_HFP)(DdManager *, const char *, void *);
 type HookFun = Ptr () -> Ptr () -> Ptr () -> IO CInt
+foreign import ccall "wrapper" wrapHook
+  :: HookFun -> IO (FunPtr HookFun)
+
+data HookType = PreGC | PostGC | PreReordering | PostReordering
+  deriving (Eq, Ord, Show)
+
+toCudd_HookType :: HookType -> Cudd_HookType
+toCudd_HookType ht =
+  case ht of
+    PreGC          -> cudd_pre_gc_hook
+    PostGC         -> cudd_post_gc_hook
+    PreReordering  -> cudd_pre_reordering_hook
+    PostReordering -> cudd_post_reordering_hook
 
 foreign import ccall "cudd.h Cudd_AddHook" cudd_AddHook
   :: DdManagerP -> FunPtr HookFun -> Cudd_HookType -> IO CInt
 
-foreign import ccall "wrapper" wrapHook
-  :: HookFun -> IO (FunPtr HookFun)
+addHook' :: DdManagerP -> HookType -> FunPtr HookFun -> IO CInt
+addHook' ddmanager ht hf = cudd_AddHook ddmanager hf (toCudd_HookType ht)
+
+
 
 foreign import ccall "cudd.h Cudd_ReadSize" cudd_ReadSize
   :: DdManagerP -> IO CInt
