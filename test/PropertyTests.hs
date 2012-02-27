@@ -13,7 +13,7 @@ import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.List (lookup, delete, splitAt)
 import Data.Maybe (fromJust, isJust)
 import System.Exit (exitFailure, exitSuccess)
-import System.IO (stderr, hPrint)
+import System.IO (stdout, stderr, hPrint, hFlush)
 import Text.Printf (hPrintf, printf)
 
 import Test.QuickCheck
@@ -255,7 +255,7 @@ main = do
   failed <- newIORef False
   let conf = stdArgs { maxSuccess = 1000, maxDiscard = 1000 }
   let qc :: Testable p => String -> p -> IO ()
-      qc name prop = do printf "%s: " name
+      qc name prop = do printf "%s: " name >> hFlush stdout
                         --res <- verboseCheckWithResult conf prop
                         res <- quickCheckWithResult conf prop
                         case res of
