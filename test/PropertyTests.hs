@@ -253,7 +253,7 @@ prop_varOrderInvariant sp =
 main :: IO ()
 main = do
   failed <- newIORef False
-  let conf = stdArgs { maxSuccess = 1000, maxDiscard = 1000 }
+  let conf = stdArgs { maxSuccess = 100, maxDiscard = 1000 }
   let qc :: Testable p => String -> p -> IO ()
       qc name prop = do printf "%s: " name >> hFlush stdout
                         --res <- verboseCheckWithResult conf prop
