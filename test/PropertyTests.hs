@@ -217,6 +217,12 @@ instance Arbitrary SplitProp where
 
 
 
+-- This doesn't even hold for strictly less-than instead of less-than-or-equal.
+-- Where did I come up with this idea?
+--
+-- Does a less general property---namely, about the number of nodes *at levels i1
+-- and i2*---hold?  To test this, I need to be able to get the count of nodes at
+-- a given level from CUDD, which is functionality that doesn't seem to be built in.
 prop_varOrderInvariant :: SplitProp -> Property
 prop_varOrderInvariant sp =
   let propMaxVar = unsafeMaxVar (prop sp) in
