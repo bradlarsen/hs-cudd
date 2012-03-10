@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include "cudd.h"
 
+#include "cuddInt.h"
+
 /* We use a reference-counting layer on top of DdNode and DdManager values,
    to avoid problems with Haskell finalizer order.
  */ 
@@ -39,5 +41,7 @@ Bdd * cw_bdd_compose (Bdd *b1, Bdd *b2, unsigned v);
 Bdd * cw_bdd_restrict (Bdd *b1, Bdd *b2);
 Bdd * cw_bdd_exist_abstract (Bdd *b1, Bdd *b2);
 Bdd * cw_bdd_univ_abstract (Bdd *b1, Bdd *b2);
+
+unsigned cw_mgr_nodes_at_level (Mgr *mgr, unsigned level);
 
 #endif /* CUDD_WRAPPERS_H */

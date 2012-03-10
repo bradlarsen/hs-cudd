@@ -5,6 +5,7 @@ module Cudd
   , newMgr
   , numVars
   , numNodes
+  , numNodesAtLevel
   , nodeLimit
   , setNodeLimit
 
@@ -159,6 +160,12 @@ foreign import ccall "cudd.h Cudd_ReadNodeCount" cudd_ReadNodeCount
   :: DdManagerP -> IO CLong
 numNodes :: Mgr -> IO Int
 numNodes mgr = fromIntegral <$> withDdManager mgr cudd_ReadNodeCount
+
+foreign import ccall "cudd_wrappers.h cw_mgr_nodes_at_level" cw_mgr_nodes_at_level
+  :: MgrP -> CUInt -> IO CUInt
+numNodesAtLevel :: Mgr -> Int -> IO Int
+numNodesAtLevel mgr lvl = withMgr mgr $ \mgr ->
+  fromIntegral <$> cw_mgr_nodes_at_level mgr (fromIntegral lvl)
 
 foreign import ccall "cudd.h Cudd_ReadMaxLive" cudd_ReadMaxLive
   :: DdManagerP -> IO CUInt
@@ -325,7 +332,7 @@ foreign import ccall "cudd_wrappers.h cw_bdd_ddnode" cw_bdd_ddnode
   :: BddP -> IO DdNodeP
 
 foreign import ccall "cudd.h Cudd_DagSize" cudd_DagSize
-  :: DdNodeP -> IO CUInt
+  :: DdNodeP -> IO CInt
 bddNumNodes :: Bdd -> IO Int
 bddNumNodes bdd = fromIntegral <$> withDdNode bdd cudd_DagSize
 

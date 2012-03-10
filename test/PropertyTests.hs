@@ -19,7 +19,7 @@ import Text.Printf (hPrintf, printf)
 import Test.QuickCheck
   (Property, quickCheckWithResult, verboseCheckWithResult,
    Args (maxSuccess, maxDiscard), stdArgs,
-   Testable, (==>), forAll, choose,
+   Testable, (==>), forAll, forAllShrink, shrinkIntegral, choose,
    listOf, Result (Failure, NoExpectedFailure), elements, Gen,
    Arbitrary (arbitrary, shrink),
    NonNegative (NonNegative))
@@ -48,17 +48,39 @@ prop_symbolicEvaluationSame prop = monadicIO $ do
   assert eq
   run performGC
 
-prop_projectionFunSize :: NonNegative Int -> Property
-prop_projectionFunSize (NonNegative idx) =
-  idx <= 100000 ==>
+prop_projectionFunSize :: Property
+prop_projectionFunSize =
+  forAllShrink (choose (0, 100000)) shrinkIntegral $ \idx ->
   monadicIO $ do
-    eq  <- run $ do mgr <- newMgr
+    eq  <- run $ do mgr            <- newMgr
                     idxBdd         <- bddIthVar mgr idx
                     idxBddNumNodes <- bddNumNodes idxBdd
                     size           <- numNodes mgr
                     return (idxBddNumNodes == 2 && size == 2)
     assert eq
     run performGC
+
+prop_nodesAtLevel :: Prop Int -> Property
+prop_nodesAtLevel prop =
+  let mMaxVar = maxVar prop in
+  isJust mMaxVar ==>
+  let maxVar = fromJust mMaxVar in
+    monadicIO $ do
+      (lhs, rhs) <- run $ do mgr      <- newMgr
+                             propBdd  <- synthesizeBdd mgr prop
+                             -- If a GC happens between the computation of
+                             -- nNodes and sumNodes, the counts might differ!
+                             -- Ugh.  So, if we force GC first, if all finalizers
+                             -- on dead BDDs are run, we should always get the
+                             -- same counts.  This seems fragile!
+                             performGC
+                             nNodes   <- numNodes mgr
+                             sumNodes <- sum <$> mapM (numNodesAtLevel mgr) [0..maxVar]
+                             return (nNodes, 1 + sumNodes)
+      when (lhs /= rhs) $ run $ do
+        hPrintf stderr "\n!!! lhs is %d, rhs is %d\n" lhs rhs
+      assert (lhs == rhs)
+      run performGC
 
 
 mkCube :: Mgr -> [Bdd] -> IO Bdd
@@ -240,9 +262,9 @@ prop_varOrderInvariant sp =
     let order1 = prefix sp ++ [i1 sp, i2 sp] ++ suffix sp
     let order2 = prefix sp ++ [i2 sp, i1 sp] ++ suffix sp
 
-    run $ reorderVariables mgr order1
+    run $ reorderVariables mgr order1 >> performGC
     order1Size <- run $ bddNumNodes propBdd
-    run $ reorderVariables mgr order2
+    run $ reorderVariables mgr order2 >> performGC
     order2Size <- run $ bddNumNodes propBdd
     when (order1Size > order2Size) $ run $ do
       withFile "order1.dot" WriteMode $ \out -> do
@@ -259,7 +281,7 @@ prop_varOrderInvariant sp =
 main :: IO ()
 main = do
   failed <- newIORef False
-  let conf = stdArgs { maxSuccess = 100, maxDiscard = 1000 }
+  let conf = stdArgs { maxSuccess = 1000, maxDiscard = 1000 }
   let qc :: Testable p => String -> p -> IO ()
       qc name prop = do printf "%s: " name >> hFlush stdout
                         --res <- verboseCheckWithResult conf prop
@@ -277,6 +299,7 @@ main = do
   qc "prop_existAbstract" prop_existAbstract
   qc "prop_univAbstract" prop_univAbstract
   qc "prop_varOrderInvariant" prop_varOrderInvariant
+  qc "prop_nodesAtLevel" prop_nodesAtLevel
 
   didFail <- readIORef failed
   if didFail then exitFailure else exitSuccess

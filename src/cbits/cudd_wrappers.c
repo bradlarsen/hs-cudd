@@ -165,3 +165,20 @@ Bdd * cw_bdd_compose (Bdd *b1, Bdd *b2, unsigned v)
                        Cudd_bddCompose (bdd_ddmanager (b1), bdd_ddnode (b1),
                                         bdd_ddnode (b2), v));
 }
+
+
+unsigned cw_mgr_nodes_at_level (Mgr *mgr, unsigned level)
+{
+    assert (mgr_good (mgr));
+    assert (level < mgr_ddmanager (mgr)->size);
+
+    DdManager *ddmgr = mgr_ddmanager (mgr);
+    DdSubtable subtable = ddmgr->subtables[level];
+    assert (subtable.keys >= subtable.dead);
+    unsigned count = subtable.keys - subtable.dead;
+    if (ddmgr->vars[level]->ref == 1) {
+        assert (count > 0);
+        count -= 1;
+    }
+    return count;
+}
