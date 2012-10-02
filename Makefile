@@ -2,7 +2,7 @@ PATH := $(HOME)/Library/Haskell/bin:$(HOME)/bin:/opt/local/bin:$(PATH)
 
 .PHONY: all install tags test clean
 
-all: install test
+all: install
 
 tags:
 	find src test cudd-2.5.0 -iname '*.hs' -o -iname '*.hsc' -o -iname '*.lhs' \
