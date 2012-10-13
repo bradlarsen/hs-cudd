@@ -10,7 +10,7 @@ tags:
 	ctags -R --append=yes -f .tags
 
 install:
-	cabal install
+	cabal install --enable-tests
 
 test:
 	cabal test

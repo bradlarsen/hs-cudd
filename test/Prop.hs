@@ -11,7 +11,7 @@ module Prop
 
 import qualified Cudd
 
-import Control.Monad (liftM, liftM2, foldM)
+import HsCuddPrelude
 import Data.Set (Set, empty, insert, union, member, toList, toAscList)
 
 data Prop a

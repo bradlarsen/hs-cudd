@@ -25,6 +25,7 @@ Cabal-version:       >=1.9.2
 Library
   Hs-Source-Dirs:    src
   Exposed-modules:   Cudd
+                     HsCuddPrelude
   -- Modules not exported by this package.
   Other-modules:     ForeignHandle
   Build-depends:     base, unix

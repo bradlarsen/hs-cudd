@@ -68,18 +68,13 @@ module Cudd
   ) where
 
 import ForeignHandle (handleToCFile, fclose)
-
 import Foreign (nullPtr, Ptr, FunPtr, ForeignPtr, newForeignPtr, withForeignPtr)
-import Foreign.C (CInt, CUInt, CDouble, CChar, CLong, CString, CFile, withCString)
+import Foreign.C (CInt(..), CUInt(..), CDouble(..), CChar(..), CLong(..), CString, CFile, withCString)
 import Foreign.Marshal (free, mallocArray, peekArray, withArray, withArrayLen, withMany, toBool)
 
-import Control.Applicative ((<$>))
-import Control.Exception (Exception, throw, bracket)
-import Control.Monad ((>=>), when, liftM, forM, unless)
-import Data.List (sort)
-import Data.Typeable (Typeable)
-import Data.Word (Word)
+import HsCuddPrelude
 
+import Control.Exception (Exception, throw, bracket)
 import System.IO (Handle)
 import System.Mem (performGC)
 

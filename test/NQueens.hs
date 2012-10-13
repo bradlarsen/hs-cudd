@@ -8,8 +8,7 @@ import Cudd
 import Prop
 import PropToBdd
 
-import Control.Applicative ((<$>), (<*>))
-import Control.Monad ((>=>), (<=<), forM_, forM, foldM, guard)
+import HsCuddPrelude
 import System.Exit (exitFailure, exitSuccess)
 import System.IO (stderr)
 import Text.Printf (printf, hPrintf)

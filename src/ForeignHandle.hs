@@ -7,10 +7,10 @@ module ForeignHandle (
     ) where
 
 import GHC.IO.Handle (Handle, hDuplicate)
-import Foreign (Ptr)
-import Foreign.C (CString, CFile, withCAString)
+import Foreign (Ptr(..))
+import Foreign.C (CInt(..), CString(..), CFile(..), withCAString)
 import System.Posix.IO (handleToFd)
-import System.Posix.Types (Fd)
+import System.Posix.Types (Fd(..))
 
 foreign import ccall unsafe "stdio.h fdopen" fdopen
   :: Fd -> CString -> IO (Ptr CFile)

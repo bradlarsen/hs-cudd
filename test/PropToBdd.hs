@@ -4,10 +4,7 @@ module PropToBdd
 
 import qualified Cudd
 import Prop
-
-import Control.Applicative ((<$>), (<*>))
-import Control.Monad (foldM, join)
-
+import HsCuddPrelude
 
 evalBdd :: Assignment Int -> Cudd.Mgr -> Cudd.Bdd -> IO Bool
 evalBdd assigns mgr bdd = do
