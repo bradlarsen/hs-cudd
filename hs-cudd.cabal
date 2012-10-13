@@ -141,17 +141,17 @@ Library
   includes:          cudd_wrappers.h
 
 
-Test-Suite property-tests
-  Type:              exitcode-stdio-1.0
-  Hs-Source-Dirs:    test
-  Main-is:           PropertyTests.hs
-  Build-depends:     base, hs-cudd, QuickCheck, containers
-
 Test-Suite unit-tests
   Type:              exitcode-stdio-1.0
   Hs-Source-Dirs:    test
   Main-is:           UnitTests.hs
   Build-depends:     base, hs-cudd, HUnit, QuickCheck, containers
+
+Test-Suite property-tests
+  Type:              exitcode-stdio-1.0
+  Hs-Source-Dirs:    test
+  Main-is:           PropertyTests.hs
+  Build-depends:     base, hs-cudd, QuickCheck, containers
 
 Test-Suite test-nqueens
   Type:              exitcode-stdio-1.0
