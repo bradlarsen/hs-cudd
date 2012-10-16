@@ -6,7 +6,8 @@ module HsCuddPrelude (
   , module Data.Word
   ) where
 
-import Control.Applicative (Applicative, (<$>), (<*>), (<*), (*>), (<**>))
+import Control.Applicative (
+  Applicative, (<$>), (<*>), (<*), (*>), (<**>), pure)
 import Control.Monad (
     liftM, liftM2, liftM3
   , forM_, forM
