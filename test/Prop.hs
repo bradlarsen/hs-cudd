@@ -17,14 +17,14 @@ import Data.Set (Set, empty, insert, union, member, toList, toAscList)
 data Prop a
   = PFalse
   | PTrue
-  | PVar a
-  | PNot (Prop a)
-  | PAnd (Prop a) (Prop a)
-  | POr (Prop a) (Prop a)
-  | PXor (Prop a) (Prop a)
-  | PNand (Prop a) (Prop a)
-  | PNor (Prop a) (Prop a)
-  | PXnor (Prop a) (Prop a)
+  | PVar !a
+  | PNot !(Prop a)
+  | PAnd !(Prop a) !(Prop a)
+  | POr !(Prop a) !(Prop a)
+  | PXor !(Prop a) !(Prop a)
+  | PNand !(Prop a) !(Prop a)
+  | PNor !(Prop a) !(Prop a)
+  | PXnor !(Prop a) !(Prop a)
   deriving (Show, Eq)
 
 vars' :: (Ord a) => Prop a -> Set a
