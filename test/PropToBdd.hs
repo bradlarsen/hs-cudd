@@ -4,7 +4,14 @@ module PropToBdd
 
 import qualified Cudd
 import Prop
+import PropCSE
 import HsCuddPrelude
+
+import qualified Data.IntMap as IntMap
+import Data.IntMap (IntMap, (!))
+
+import Debug.Trace (trace)
+import Text.Printf (printf)
 
 evalBdd :: Assignment Int -> Cudd.Mgr -> Cudd.Bdd -> IO Bool
 evalBdd assigns mgr bdd = do
@@ -35,3 +42,42 @@ synthesizeBdd mgr = synthesizeBdd'
         PNor p1 p2  -> bin Cudd.bddNor p1 p2
         PXnor p1 p2 -> bin Cudd.bddXnor p1 p2
     bin f p1 p2 = join $ f <$> synthesizeBdd' p1 <*> synthesizeBdd' p2
+
+{-
+-- with a CSE pass first, and most-bottom-up scheduling
+
+-- BUGGY:  my reasoning is invalid--breadth-first traversal will NOT
+-- schedule the subcomponents into most-bottom-up scheduling
+
+-- | Synthesize the sentence of propositional logic into a BDD.
+synthesizeBdd :: Cudd.Mgr -> Prop Int -> IO Cudd.Bdd
+synthesizeBdd mgr prop = do
+    trace (printf "prop: %s" (show prop)) $ do
+    trace (printf "schedule: %s" (show schedule)) $ do
+    trace (printf "root: %s" (show root)) $ do
+    endMap <- synthesizeBdd' schedule
+    return (endMap ! root)
+  where
+    schedule :: [(Int, PropHC Int)]
+    root :: Int
+    (schedule, root) = let c = cse prop in (bft c, snd c)
+
+    synthesizeBdd' :: [(Int, PropHC Int)] -> IO (IntMap Cudd.Bdd)
+    synthesizeBdd' = foldM synthesize IntMap.empty
+
+    synthesize :: IntMap Cudd.Bdd -> (Int, PropHC Int) -> IO (IntMap Cudd.Bdd)
+    synthesize computed (i, p) =
+      trace (printf "synthesizing %s" (show (i, p))) $
+      let insert v = IntMap.insert i v computed in
+      case p of
+        PHCFalse      -> insert <$> Cudd.bddFalse mgr
+        PHCTrue       -> insert <$> Cudd.bddTrue mgr
+        PHCVar v      -> insert <$> Cudd.bddIthVar mgr v
+        PHCNot i1     -> insert <$> Cudd.bddNot  (computed ! i1)
+        PHCAnd  i1 i2 -> insert <$> Cudd.bddAnd  (computed ! i1) (computed ! i2)
+        PHCOr   i1 i2 -> insert <$> Cudd.bddOr   (computed ! i1) (computed ! i2)
+        PHCXor  i1 i2 -> insert <$> Cudd.bddXor  (computed ! i1) (computed ! i2)
+        PHCNand i1 i2 -> insert <$> Cudd.bddNand (computed ! i1) (computed ! i2)
+        PHCNor  i1 i2 -> insert <$> Cudd.bddNor  (computed ! i1) (computed ! i2)
+        PHCXnor i1 i2 -> insert <$> Cudd.bddXnor (computed ! i1) (computed ! i2)
+-}
