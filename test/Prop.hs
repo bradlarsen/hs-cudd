@@ -9,10 +9,7 @@ module Prop
   , eval
   ) where
 
-import qualified Cudd
-
-import HsCuddPrelude
-import Data.Set (Set, empty, insert, union, member, toList, toAscList)
+import Data.Set (Set, empty, insert, union, member, toList)
 
 data Prop a
   = PFalse

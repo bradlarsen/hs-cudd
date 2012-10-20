@@ -1,10 +1,8 @@
 module Main (main) where
 
 import Cudd
-import Prop
+import HsCuddPrelude
 
-import Control.Applicative ((<$>))
-import System.Exit (exitFailure, exitSuccess)
 import Test.HUnit (Test (TestCase, TestList), assertBool, errors, failures)
 import Test.HUnit.Text (runTestTT)
 

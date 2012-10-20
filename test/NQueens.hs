@@ -9,9 +9,6 @@ import Prop
 import PropToBdd
 
 import HsCuddPrelude
-import System.Exit (exitFailure, exitSuccess)
-import System.IO (stderr)
-import Text.Printf (printf, hPrintf)
 
 modelNQueens :: Int -> Prop Int
 modelNQueens n =
@@ -105,4 +102,4 @@ main = forM_ [1..10] $ \n -> do
   case lookup n expectedNumSolutions of
     Just ns | numSolutions /= ns -> do printf "error: expected %f solutions\n" ns
                                        exitFailure
-    _                            -> return ()
+    _                            -> exitSuccess

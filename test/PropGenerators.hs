@@ -7,12 +7,10 @@ module PropGenerators
   ) where
 
 import Prop
+import HsCuddPrelude
 
-import Control.Applicative ((<$>), (<*>))
-import Data.List (lookup)
-import Data.Maybe (fromJust)
 import Test.QuickCheck (Arbitrary, arbitrary, shrink, Gen, oneof, elements,
-                        frequency, choose, shrinkIntegral, vectorOf, sized)
+                        choose, sized)
 
 -- | Generate an arbitrary proposition.
 arbitraryPropWithVarsAndSize

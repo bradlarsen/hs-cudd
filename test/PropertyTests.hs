@@ -1,33 +1,26 @@
 -- Some unit tests & property tests for the BDD library.
 -- This could use some cleanup.  And more properties!
-module Main where
+module Main (main) where
 
 import Cudd hiding (VarAssign (..))
 import Prop
-import PropGenerators
+import PropGenerators ()
 import PropToBdd
 
-import Control.Applicative ((<$>), (<*>))
-import Control.Monad (forM_, forM, liftM, foldM, when, join, guard)
+import HsCuddPrelude
+
 import Data.IORef (newIORef, readIORef, writeIORef)
-import Data.List (lookup, delete, splitAt)
-import Data.Maybe (fromJust, isJust)
-import System.Exit (exitFailure, exitSuccess)
-import System.IO (stdout, stderr, hPrint, hFlush)
-import Text.Printf (hPrintf, printf)
 import System.Random (mkStdGen)
 
 import Test.QuickCheck
-  (Property, quickCheckWithResult, verboseCheckWithResult,
+  (Property, quickCheckWithResult, -- verboseCheckWithResult,
    Args (maxSuccess, maxDiscard, replay), stdArgs,
-   Testable, (==>), forAll, forAllShrink, shrinkIntegral, choose,
-   listOf, Result (Failure, NoExpectedFailure), elements, Gen,
-   Arbitrary (arbitrary, shrink),
-   NonNegative (NonNegative))
+   Testable, (==>), forAllShrink, shrinkIntegral, choose,
+   Result (Failure, NoExpectedFailure), elements, Gen,
+   Arbitrary (arbitrary, shrink))
 import Test.QuickCheck.Monadic (monadicIO, assert, run, pre, pick)
 
 import System.Mem (performGC)
-
 import System.IO (withFile, IOMode (WriteMode))
 
 
@@ -68,7 +61,7 @@ prop_nodesAtLevel prop =
   let maxVar = fromJust mMaxVar in
     monadicIO $ do
       (lhs, rhs) <- run $ do mgr      <- newMgr
-                             propBdd  <- synthesizeBdd mgr prop
+                             void (synthesizeBdd mgr prop)
                              -- If a GC happens between the computation of
                              -- nNodes and sumNodes, the counts might differ!
                              -- Ugh.  So, if we force GC first, if all finalizers
@@ -86,7 +79,7 @@ prop_nodesAtLevel prop =
 
 mkCube :: Mgr -> [Bdd] -> IO Bdd
 mkCube mgr [] = bddTrue mgr
-mkCube mgr (v : vs) = foldM bddAnd v vs
+mkCube _mgr (v : vs) = foldM bddAnd v vs
 
 quantifier :: (Bdd -> Bdd -> IO Bdd) -> (Bdd -> Bdd -> IO Bdd) -> Prop Int -> Property
 quantifier q q' prop = monadicIO $ do
@@ -155,6 +148,8 @@ nontrivial prop = case maxVar prop of
 unsafeMaxVar :: Prop Int -> Int
 unsafeMaxVar = fromJust . maxVar
 
+-- WTF is a SplitProp?
+-- I don't remember.  It's only used for a property about variable reordering...
 data SplitProp = SplitProp { prop   :: Prop Int
                            , i1     :: Int
                            , prefix :: [Int]
@@ -181,8 +176,8 @@ mkSplitProp func prop i1 prefix suffix =
 i2 :: SplitProp -> Int
 i2 = succ . i1
 
-splitPropMaxVar :: SplitProp -> Int
-splitPropMaxVar sp = fromJust (maxVar (prop sp))
+--splitPropMaxVar :: SplitProp -> Int
+--splitPropMaxVar sp = fromJust (maxVar (prop sp))
 
 split2 :: [a] -> Gen ([a], [a])
 split2 vs = do
@@ -190,13 +185,13 @@ split2 vs = do
   i <- choose (0, len)
   return (splitAt i vs)
 
-split3 :: [a] -> Gen ([a], [a], [a])
-split3 vs = do
-  let len = length vs
-  j1 <- choose (0, len)
-  j2 <- choose (0, len)
-  let (i1, i2) = (min j1 j2, max j1 j2)
-  return (take i1 vs, drop i1 (take i2 vs), drop i2 vs)
+--split3 :: [a] -> Gen ([a], [a], [a])
+--split3 vs = do
+--  let len = length vs
+--  j1 <- choose (0, len)
+--  j2 <- choose (0, len)
+--  let (i1, i2) = (min j1 j2, max j1 j2)
+--  return (take i1 vs, drop i1 (take i2 vs), drop i2 vs)
 
 genSplitProp :: Prop Int -> Gen SplitProp
 genSplitProp prop
