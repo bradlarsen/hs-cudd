@@ -7,8 +7,8 @@ module ForeignHandle (
     ) where
 
 import GHC.IO.Handle (Handle, hDuplicate)
-import Foreign (Ptr(..))
-import Foreign.C (CInt(..), CString(..), CFile(..), withCAString)
+import Foreign (Ptr)
+import Foreign.C (CInt(..), CString, CFile, withCAString)
 import System.Posix.IO (handleToFd)
 import System.Posix.Types (Fd(..))
 
