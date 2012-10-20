@@ -45,8 +45,8 @@ evalBdd assigns mgr bdd = do
 --    bin f p1 p2 = join $ f <$> synthesizeBdd' p1 <*> synthesizeBdd' p2
 
 
--- with a CSE pass first, and lowest-first scheduling
--- | Synthesize the sentence of propositional logic into a BDD.
+-- | Synthesize the sentence of propositional logic into a BDD,
+-- with a CSE pass first, and lowest-first scheduling.
 synthesizeBdd :: Cudd.Mgr -> Prop Int -> IO Cudd.Bdd
 synthesizeBdd mgr prop = do
     --trace (printf "prop: %s" (show prop)) $ do
