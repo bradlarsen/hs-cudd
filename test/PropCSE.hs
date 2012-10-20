@@ -1,6 +1,6 @@
 module PropCSE (
     cse
-  -- , bft
+  , lowestFirstSchedule
   , PropHC(..)
   ) where
 
@@ -10,8 +10,6 @@ import qualified Data.Map as Map
 import Data.Map (Map)
 import qualified Data.IntMap as IntMap
 import Data.IntMap (IntMap, (!))
-import qualified Data.IntSet as IntSet
-import Data.IntSet (IntSet)
 
 import Control.Monad.State.Strict (State, runState, get, put)
 
@@ -29,10 +27,14 @@ data PropHC a
   | PHCXnor !Int !Int
   deriving (Eq, Ord, Show)
 
--- Common subexpression elimination for (Ord a) => Prop a values.
--- Returns the mapping from index to PropHC node, as well as the index of the
--- PropHC node representing prop.
-cse :: (Ord a) => Prop a -> (IntMap (PropHC a), Int)
+-- | A representation of a Prop a value with common subexpression elimination
+-- applied to it.
+type CSEProp a = ( IntMap (PropHC a)  -- ^ a mapping from index to subcomponent
+                 , Int                -- ^ the index of the root component
+                 )
+
+-- | Common subexpression elimination for sentences in propositional logic.
+cse :: (Ord a) => Prop a -> CSEProp a
 cse prop = (flippedBindings, propIndex)
   where
     flippedBindings = Map.foldWithKey (\p i m -> IntMap.insert i p m)
@@ -45,7 +47,7 @@ cse prop = (flippedBindings, propIndex)
               PFalse      -> pure PHCFalse
               PTrue       -> pure PHCTrue
               PVar v      -> pure (PHCVar v)
-              PNot p      -> PHCNot  <$> go p
+              PNot p1     -> PHCNot  <$> go p1
               PAnd  p1 p2 -> PHCAnd  <$> go p1 <*> go p2
               POr   p1 p2 -> PHCOr   <$> go p1 <*> go p2
               PXor  p1 p2 -> PHCXor  <$> go p1 <*> go p2
@@ -60,52 +62,34 @@ cse prop = (flippedBindings, propIndex)
 
 
 
-type Queue a
-  = ( [a]  -- in:  more recently inserted come first
-    , [a]  -- out  more recently inserted come last
-    )
-
-emptyQueue :: Queue a
-emptyQueue = ([], [])
-
-pushQueue :: Queue a -> a -> Queue a
-pushQueue (input, output) a = (a : input, output)
-
-popQueue :: Queue a -> Maybe (a, Queue a)
-popQueue (input, o : os) = Just (o, (input, os))
-popQueue ([], []) = Nothing
-popQueue (input, []) = let i : is = reverse input
-                        in Just (i, ([], is))
-
-
-
--- BUGGY
-bft :: (IntMap (PropHC a), Int) -> [(Int, PropHC a)]
-bft (bindings, root) = [ (i, bindings ! i) | i <- bftIndexes ]
+-- | Orders the subcomponents of a CSEProp a in such a way that evaluating
+-- the components in order will respect data dependencies and will evaluate
+-- the lowest subcomponents (i.e., those with the most dependencies) first.
+lowestFirstSchedule :: CSEProp a -> [(Int, PropHC a)]
+lowestFirstSchedule (bindings, root) = byDependencyCount
   where
-    bftIndexes :: [Int]
-    bftIndexes = reverse $ bft' (insert (emptyQueue, IntSet.empty) root)
+    byDependencyCount = [(i, bindings ! i) | i <- map fst byCountDesc]
 
-    insert :: (Queue Int, IntSet) -> Int -> (Queue Int, IntSet)
-    insert q@(queue, seen) i =
-      if IntSet.member i seen
-         then q
-         else (pushQueue queue i, IntSet.insert i seen)
+    byCountDesc :: [(Int, Int)]
+    byCountDesc = sortBy (flip (comparing snd)) (IntMap.toList dependencyCounts)
 
-    bft' :: (Queue Int, IntSet) -> [Int]
-    bft' q@(queue, seen) =
-      case popQueue queue of
-        Nothing          -> []
-        Just (i, queue') ->
-          let q' = (queue', seen)
-           in i : case bindings ! i of
-                    PHCFalse      -> bft' q'
-                    PHCTrue       -> bft' q'
-                    PHCVar _v     -> bft' q'
-                    PHCNot i1     -> bft' (insert q' i1)
-                    PHCAnd  i1 i2 -> bft' (insert (insert q' i1) i2)
-                    PHCOr   i1 i2 -> bft' (insert (insert q' i1) i2)
-                    PHCXor  i1 i2 -> bft' (insert (insert q' i1) i2) 
-                    PHCNand i1 i2 -> bft' (insert (insert q' i1) i2) 
-                    PHCNor  i1 i2 -> bft' (insert (insert q' i1) i2) 
-                    PHCXnor i1 i2 -> bft' (insert (insert q' i1) i2) 
+    dependencyCounts :: IntMap Int  -- maps index to number of occurrences
+    dependencyCounts = count IntMap.empty root
+      where
+        increment :: IntMap Int -> Int -> IntMap Int
+        increment counts idx = IntMap.insertWith (+) idx 1 counts
+
+        count :: IntMap Int -> Int -> IntMap Int
+        count counts idx =
+          let counts' = increment counts idx
+           in case bindings ! idx of
+                PHCFalse      -> counts'
+                PHCTrue       -> counts'
+                PHCVar _v     -> counts'
+                PHCNot i1     -> count counts' i1
+                PHCAnd  i1 i2 -> count (count counts' i1) i2
+                PHCOr   i1 i2 -> count (count counts' i1) i2
+                PHCXor  i1 i2 -> count (count counts' i1) i2
+                PHCNand i1 i2 -> count (count counts' i1) i2
+                PHCNor  i1 i2 -> count (count counts' i1) i2
+                PHCXnor i1 i2 -> count (count counts' i1) i2
