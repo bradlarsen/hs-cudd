@@ -31,6 +31,7 @@ Library
   Build-depends:     base, unix
 
   Build-tools:       hsc2hs
+  ghc-options:       -Wall -fno-warn-orphans -fno-warn-name-shadowing -fno-warn-unused-do-bind
   cc-options:        -DHAVE_IEEE_754 -DSIZEOF_VOID_P=8 -DSIZEOF_LONG=8
                      -- -DDD_DEBUG
                      -- -DDD_CACHE_PROFILE
@@ -148,6 +149,7 @@ Test-Suite unit-tests
   Main-is:           UnitTests.hs
   Other-Modules:     Prop
   Build-depends:     base, hs-cudd, HUnit, QuickCheck, containers
+  ghc-options:       -Wall -fno-warn-orphans -fno-warn-name-shadowing -fno-warn-unused-do-bind
 
 Test-Suite property-tests
   Type:              exitcode-stdio-1.0
@@ -157,6 +159,7 @@ Test-Suite property-tests
                      PropToBdd
                      PropGenerators
   Build-depends:     base, hs-cudd, QuickCheck, containers, random, mtl
+  ghc-options:       -Wall -fno-warn-orphans -fno-warn-name-shadowing -fno-warn-unused-do-bind
 
 Test-Suite test-nqueens
   Type:              exitcode-stdio-1.0
@@ -165,3 +168,4 @@ Test-Suite test-nqueens
   Other-Modules:     Prop
                      PropToBdd
   Build-depends:     base, hs-cudd, QuickCheck, containers, mtl
+  ghc-options:       -Wall -fno-warn-orphans -fno-warn-name-shadowing -fno-warn-unused-do-bind
