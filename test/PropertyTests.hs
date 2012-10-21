@@ -10,11 +10,12 @@ import PropToBdd
 import HsCuddPrelude
 
 import Data.IORef (newIORef, readIORef, writeIORef)
-import System.Random (mkStdGen)
+--import System.Random (mkStdGen)
 
 import Test.QuickCheck
   (Property, quickCheckWithResult, -- verboseCheckWithResult,
-   Args (maxSuccess, maxDiscard, replay), stdArgs,
+   --Args (maxSuccess, maxDiscard, replay),
+   stdArgs,
    Testable, (==>), forAllShrink, shrinkIntegral, choose,
    Result (Failure, NoExpectedFailure), elements, Gen,
    Arbitrary (arbitrary, shrink))
@@ -277,7 +278,8 @@ prop_varOrderInvariant sp =
 main :: IO ()
 main = do
   failed <- newIORef False
-  let conf = stdArgs { maxSuccess = 1000, maxDiscard = 1000, replay = Just (mkStdGen 0, 100) }
+  --let conf = stdArgs { maxSuccess = 1000, maxDiscard = 1000, replay = Just (mkStdGen 0, 100) }
+  let conf = stdArgs
   let qc :: Testable p => String -> p -> IO ()
       qc name prop = do printf "%s: " name >> hFlush stdout
                         --res <- verboseCheckWithResult conf prop
