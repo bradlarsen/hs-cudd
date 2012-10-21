@@ -11,6 +11,7 @@ module Prop
 
 import Data.Set (Set, empty, insert, union, member, toList)
 
+-- | A sentence in propositional logic with variable type 'a'.
 data Prop a
   = PFalse
   | PTrue
