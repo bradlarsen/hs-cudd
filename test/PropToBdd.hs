@@ -32,16 +32,17 @@ evalBdd assigns mgr bdd = do
 --  where
 --    synthesizeBdd' prop =
 --      case prop of
---        PFalse      -> Cudd.bddFalse mgr
---        PTrue       -> Cudd.bddTrue mgr
---        PVar i      -> Cudd.bddIthVar mgr i
---        PNot p      -> Cudd.bddNot =<< synthesizeBdd' p
---        PAnd p1 p2  -> bin Cudd.bddAnd p1 p2
---        POr p1 p2   -> bin Cudd.bddOr p1 p2
---        PXor p1 p2  -> bin Cudd.bddXor p1 p2
---        PNand p1 p2 -> bin Cudd.bddNand p1 p2
---        PNor p1 p2  -> bin Cudd.bddNor p1 p2
---        PXnor p1 p2 -> bin Cudd.bddXnor p1 p2
+--        PFalse        -> Cudd.bddFalse mgr
+--        PTrue         -> Cudd.bddTrue mgr
+--        PVar i        -> Cudd.bddIthVar mgr i
+--        PNot p        -> Cudd.bddNot =<< synthesizeBdd' p
+--        PAnd p1 p2    -> bin Cudd.bddAnd p1 p2
+--        POr p1 p2     -> bin Cudd.bddOr p1 p2
+--        PXor p1 p2    -> bin Cudd.bddXor p1 p2
+--        PNand p1 p2   -> bin Cudd.bddNand p1 p2
+--        PNor p1 p2    -> bin Cudd.bddNor p1 p2
+--        PXnor p1 p2   -> bin Cudd.bddXnor p1 p2
+--        PIte p1 p2 p3 -> bin Cudd.bddIte p1 p2 p3
 --    bin f p1 p2 = join $ f <$> synthesizeBdd' p1 <*> synthesizeBdd' p2
 
 
@@ -63,17 +64,18 @@ synthesizeBdd mgr prop = do
     synthesizeBdd' = foldM synthesize IntMap.empty
 
     synthesize :: IntMap Cudd.Bdd -> (Int, PropHC Int) -> IO (IntMap Cudd.Bdd)
-    synthesize computed (i, p) =
+    synthesize done (i, p) =
       --trace (printf "synthesizing %s" (show (i, p))) $
-      let insert v = IntMap.insert i v computed in
-      case p of
-        PHCFalse      -> insert <$> Cudd.bddFalse mgr
-        PHCTrue       -> insert <$> Cudd.bddTrue mgr
-        PHCVar v      -> insert <$> Cudd.bddIthVar mgr v
-        PHCNot i1     -> insert <$> Cudd.bddNot  (computed ! i1)
-        PHCAnd  i1 i2 -> insert <$> Cudd.bddAnd  (computed ! i1) (computed ! i2)
-        PHCOr   i1 i2 -> insert <$> Cudd.bddOr   (computed ! i1) (computed ! i2)
-        PHCXor  i1 i2 -> insert <$> Cudd.bddXor  (computed ! i1) (computed ! i2)
-        PHCNand i1 i2 -> insert <$> Cudd.bddNand (computed ! i1) (computed ! i2)
-        PHCNor  i1 i2 -> insert <$> Cudd.bddNor  (computed ! i1) (computed ! i2)
-        PHCXnor i1 i2 -> insert <$> Cudd.bddXnor (computed ! i1) (computed ! i2)
+      let insert v = IntMap.insert i v done in
+      insert <$> case p of
+                   PHCFalse        -> Cudd.bddFalse mgr
+                   PHCTrue         -> Cudd.bddTrue mgr
+                   PHCVar v        -> Cudd.bddIthVar mgr v
+                   PHCNot i1       -> Cudd.bddNot  (done!i1)
+                   PHCAnd  i1 i2   -> Cudd.bddAnd  (done!i1) (done!i2)
+                   PHCOr   i1 i2   -> Cudd.bddOr   (done!i1) (done!i2)
+                   PHCXor  i1 i2   -> Cudd.bddXor  (done!i1) (done!i2)
+                   PHCNand i1 i2   -> Cudd.bddNand (done!i1) (done!i2)
+                   PHCNor  i1 i2   -> Cudd.bddNor  (done!i1) (done!i2)
+                   PHCXnor i1 i2   -> Cudd.bddXnor (done!i1) (done!i2)
+                   PHCIte i1 i2 i3 -> Cudd.bddIte  (done!i1) (done!i2) (done!i3)
