@@ -56,6 +56,7 @@ module Cudd
   , bddNand
   , bddNor
   , bddXnor
+  , bddIte
   , bddRestrict
   , bddExistAbstract
   , bddUnivAbstract
@@ -378,6 +379,15 @@ binop f = \b1 b2 -> do
     withBdd b2 $ \b2 -> do
       f b1 b2 >>= mkBdd
 
+ternary :: (BddP -> BddP -> BddP -> IO BddP) -> Bdd -> Bdd -> Bdd -> IO Bdd
+ternary f = \b1 b2 b3 -> do
+  checkSameManager b1 b2
+  checkSameManager b1 b3
+  withBdd b1 $ \b1 -> do
+    withBdd b2 $ \b2 -> do
+      withBdd b3 $ \b3 -> do
+        f b1 b2 b3 >>= mkBdd
+
 foreign import ccall "cudd_wrappers.h cw_bdd_not" cw_bdd_not
   :: BddP -> IO BddP
 bddNot :: Bdd -> IO Bdd
@@ -412,6 +422,11 @@ foreign import ccall "cudd_wrappers.h cw_bdd_xnor" cw_bdd_xnor
   :: BddP -> BddP -> IO BddP
 bddXnor :: Bdd -> Bdd -> IO Bdd
 bddXnor = binop cw_bdd_xnor
+
+foreign import ccall "cudd_wrappers.h cw_bdd_ite" cw_bdd_ite
+  :: BddP -> BddP -> BddP -> IO BddP
+bddIte :: Bdd -> Bdd -> Bdd -> IO Bdd
+bddIte = ternary cw_bdd_ite
 
 foreign import ccall "cudd_wrappers.h cw_bdd_restrict" cw_bdd_restrict
   :: BddP -> BddP -> IO BddP
