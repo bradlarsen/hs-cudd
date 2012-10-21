@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor #-}
 module PropCSE (
     cse
   , lowestFirstSchedule
@@ -26,7 +27,7 @@ data PropHC a
   | PHCNor !Int !Int
   | PHCXnor !Int !Int
   | PHCIte !Int !Int !Int
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Read, Show, Functor)
 
 -- | A representation of a Prop a value with common subexpression elimination
 -- applied to it.
@@ -55,7 +56,7 @@ cse prop = (flippedBindings, propIndex)
               PNand p1 p2   -> PHCNand <$> go p1 <*> go p2
               PNor  p1 p2   -> PHCNor  <$> go p1 <*> go p2
               PXnor p1 p2   -> PHCXnor <$> go p1 <*> go p2
-              PIte p1 p2 p3 -> PHCIte <$> go p1 <*> go p2 <*> go p3
+              PIte p1 p2 p3 -> PHCIte  <$> go p1 <*> go p2 <*> go p3
       m <- get
       case Map.lookup p' m of
         Nothing -> let i = Map.size m
