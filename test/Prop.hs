@@ -10,7 +10,9 @@ module Prop
   , eval
   ) where
 
-import Data.Set (Set, empty, insert, union, member, toList)
+import qualified Data.Set as Set
+import Data.Set (Set, empty, insert, member)
+import qualified Data.Foldable as Foldable
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
 
@@ -29,21 +31,8 @@ data Prop a
   | PIte !(Prop a) !(Prop a) !(Prop a)
   deriving (Read, Show, Eq, Ord, Functor, Foldable, Traversable)
 
-vars' :: (Ord a) => Prop a -> Set a
-vars' PFalse          = empty
-vars' PTrue           = empty
-vars' (PVar i)        = insert i empty
-vars' (PNot p)        = vars' p
-vars' (PAnd p1 p2)    = union (vars' p1) (vars' p2)
-vars' (POr p1 p2)     = union (vars' p1) (vars' p2)
-vars' (PXor p1 p2)    = union (vars' p1) (vars' p2)
-vars' (PNand p1 p2)   = union (vars' p1) (vars' p2)
-vars' (PNor p1 p2)    = union (vars' p1) (vars' p2)
-vars' (PXnor p1 p2)   = union (vars' p1) (vars' p2)
-vars' (PIte p1 p2 p3) = union (vars' p1) (union (vars' p2) (vars' p3))
-
 vars :: (Ord a) => Prop a -> [a]
-vars = toList . vars'
+vars = Set.toList . Set.fromList . Foldable.toList
 
 maxVar :: (Ord a) => Prop a -> Maybe a
 maxVar prop = case vars prop of
