@@ -6,10 +6,12 @@ module PropToBdd
 import qualified Cudd
 import Prop
 import PropCSE
+import PropEval
 import HsCuddPrelude
 
-import qualified Data.IntMap as IntMap
-import Data.IntMap (IntMap, (!))
+import qualified Data.Foldable as Foldable
+import qualified Data.Map as Map
+import Data.Map (Map, (!))
 
 --import Debug.Trace (trace)
 --import Text.Printf (printf)
@@ -46,6 +48,9 @@ evalBdd assigns mgr bdd = do
 --    bin f p1 p2 = join $ f <$> synthesizeBdd' p1 <*> synthesizeBdd' p2
 
 
+type SynthesisMap = Map (Idx (PropHC Int)) Cudd.Bdd
+type Schedule = [Idx (PropHC Int)]
+
 -- | Synthesize the sentence of propositional logic into a BDD,
 -- with a CSE pass first, and lowest-first scheduling.
 synthesizeBdd :: Cudd.Mgr -> Prop Int -> IO Cudd.Bdd
@@ -54,28 +59,33 @@ synthesizeBdd mgr prop = do
     --trace (printf "schedule: %s" (show schedule)) $ do
     --trace (printf "root: %s" (show root)) $ do
     endMap <- synthesizeBdd' schedule
-    return (endMap ! root)
+    return (endMap ! rootIndex prop')
   where
-    schedule :: [(Int, PropHC Int)]
-    root :: Int
-    (schedule, root) = let c = cse prop in (lowestFirstSchedule c, snd c)
+    prop' :: CSEProp Int
+    prop' = cse prop
 
-    synthesizeBdd' :: [(Int, PropHC Int)] -> IO (IntMap Cudd.Bdd)
-    synthesizeBdd' = foldM synthesize IntMap.empty
+    schedule :: Schedule
+    schedule = lowestFirstSchedule prop'
 
-    synthesize :: IntMap Cudd.Bdd -> (Int, PropHC Int) -> IO (IntMap Cudd.Bdd)
-    synthesize done (i, p) =
+    synthesizeBdd' :: Schedule -> IO SynthesisMap
+    synthesizeBdd' = foldM synthesize Map.empty
+
+    synthesize :: SynthesisMap -> Idx (PropHC Int) -> IO SynthesisMap
+    synthesize done i =
       --trace (printf "synthesizing %s" (show (i, p))) $
-      let insert v = IntMap.insert i v done in
-      insert <$> case p of
-                   PHCFalse        -> Cudd.bddFalse mgr
-                   PHCTrue         -> Cudd.bddTrue mgr
-                   PHCVar v        -> Cudd.bddIthVar mgr v
-                   PHCNot i1       -> Cudd.bddNot  (done!i1)
-                   PHCAnd  i1 i2   -> Cudd.bddAnd  (done!i1) (done!i2)
-                   PHCOr   i1 i2   -> Cudd.bddOr   (done!i1) (done!i2)
-                   PHCXor  i1 i2   -> Cudd.bddXor  (done!i1) (done!i2)
-                   PHCNand i1 i2   -> Cudd.bddNand (done!i1) (done!i2)
-                   PHCNor  i1 i2   -> Cudd.bddNor  (done!i1) (done!i2)
-                   PHCXnor i1 i2   -> Cudd.bddXnor (done!i1) (done!i2)
-                   PHCIte i1 i2 i3 -> Cudd.bddIte  (done!i1) (done!i2) (done!i3)
+      let p = fromJust (prop' `lookupPropHC` i) in
+      let insert v = Map.insert i v done
+          list op idx ident = let is = fromJust (prop' `lookupPropHCList` idx)
+                               in Foldable.foldlM (\b i -> op b (done!i)) ident is
+       in insert <$> case p of
+                       PHCFalse        -> Cudd.bddFalse mgr
+                       PHCTrue         -> Cudd.bddTrue mgr
+                       PHCVar v        -> Cudd.bddIthVar mgr v
+                       PHCNot i1       -> Cudd.bddNot  (done!i1)
+                       PHCAnd  i       ->                 list Cudd.bddAnd i =<< Cudd.bddTrue mgr
+                       PHCNand i       -> Cudd.bddNot =<< list Cudd.bddAnd i =<< Cudd.bddTrue mgr
+                       PHCOr   i       ->                 list Cudd.bddOr i =<< Cudd.bddFalse mgr
+                       PHCNor  i       -> Cudd.bddNot =<< list Cudd.bddOr i =<< Cudd.bddFalse mgr
+                       PHCXor  i1 i2   -> Cudd.bddXor  (done!i1) (done!i2)
+                       PHCXnor i1 i2   -> Cudd.bddXnor (done!i1) (done!i2)
+                       PHCIte i1 i2 i3 -> Cudd.bddIte  (done!i1) (done!i2) (done!i3)

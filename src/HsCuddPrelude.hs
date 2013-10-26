@@ -1,6 +1,7 @@
 module HsCuddPrelude (
     module Control.Applicative
   , module Control.Monad
+  , module Data.Foldable
   , module Data.List
   , module Data.Maybe
   , module Data.Ord
@@ -23,6 +24,7 @@ import Control.Monad (
   , void
   , when, unless
   )
+import Data.Foldable (Foldable)
 import Data.List (lookup, delete, splitAt, sort, sortBy)
 import Data.Maybe (fromJust, isJust, isNothing)
 import Data.Ord (comparing)

@@ -5,6 +5,7 @@ module Main (main) where
 import Cudd hiding (VarAssign (..))
 import Prop
 import PropGenerators ()
+import PropEval (assignments, eval)
 import PropToBdd
 
 import HsCuddPrelude

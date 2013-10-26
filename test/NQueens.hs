@@ -18,7 +18,7 @@ modelNQueens n =
     atLeastOneInRow i = conjoin [ disjoin [ var (i, j) | j <- [0..n-1] ] ]
 
     safe (i, j) =
-      let impl p = nvar (i, j) `POr` p in
+      let impl p = disjoin [nvar (i, j), p] in
       let notInRow = conjoin [ impl $ nvar (i, j') | j' <- [0..n-1], j /= j' ] in
       let notInCol = conjoin [ impl $ nvar (i', j) | i' <- [0..n-1], i /= i' ] in
       let notInUpRight = conjoin [ impl $ nvar c | d <- [1..n-1]
@@ -28,9 +28,6 @@ modelNQueens n =
                                                    , let c = (i + d, j + d)
                                                    , inBounds c ] in
       conjoin [notInRow, notInCol, notInUpRight, notInDownRight]
-
-    disjoin = foldl POr PFalse
-    conjoin = foldl PAnd PTrue
 
     nvar = PNot . PVar . cellToIdx
     var = PVar . cellToIdx
