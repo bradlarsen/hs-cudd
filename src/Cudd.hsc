@@ -1,5 +1,4 @@
 {-# LANGUAGE ForeignFunctionInterface, EmptyDataDecls, DeriveDataTypeable #-}
-{-# OPTIONS -Wall -fno-warn-name-shadowing #-}
 module Cudd
   ( Mgr
   , newMgr
@@ -160,8 +159,8 @@ numNodes mgr = fromIntegral <$> withDdManager mgr cudd_ReadNodeCount
 foreign import ccall "cudd_wrappers.h cw_mgr_nodes_at_level" cw_mgr_nodes_at_level
   :: MgrP -> CUInt -> IO CUInt
 numNodesAtLevel :: Mgr -> Int -> IO Int
-numNodesAtLevel mgr lvl = withMgr mgr $ \mgr ->
-  fromIntegral <$> cw_mgr_nodes_at_level mgr (fromIntegral lvl)
+numNodesAtLevel mgr lvl = withMgr mgr $ \mgrp ->
+  fromIntegral <$> cw_mgr_nodes_at_level mgrp (fromIntegral lvl)
 
 foreign import ccall "cudd.h Cudd_ReadMaxLive" cudd_ReadMaxLive
   :: DdManagerP -> IO CUInt
@@ -236,10 +235,10 @@ foreign import ccall "cudd.h Cudd_ShuffleHeap" cudd_ShuffleHeap
   :: DdManagerP -> Ptr CInt -> IO CInt
 reorderVariables :: Mgr -> [Int] -> IO ()
 reorderVariables mgr permutation = withDdManager mgr $ \ddmanager -> do
-  numVars <- fromIntegral <$> cudd_ReadSize ddmanager
-  unless (permutation `isPermutationOf` numVars) $ do
+  nVars <- fromIntegral <$> cudd_ReadSize ddmanager
+  unless (permutation `isPermutationOf` nVars) $ do
     error ("Cudd.reorderVariables: " ++ show permutation ++
-           " is not a permutation of [0.." ++ show (numVars - 1) ++ "]")
+           " is not a permutation of [0.." ++ show (nVars - 1) ++ "]")
   withArray (map fromIntegral permutation) $ \permutation' -> do
     res <- cudd_ShuffleHeap ddmanager permutation'
     when (res /= 1) $ do
@@ -369,24 +368,24 @@ foreign import ccall "cudd_wrappers.h cw_bdd_ith_var" cw_bdd_ith_var
 bddIthVar :: Mgr -> Int -> IO Bdd
 bddIthVar mgr i
   | i < 0     = error "Cudd.bddIthVar: negative i"
-  | otherwise = withMgr mgr $ \mgr ->
-                  cw_bdd_ith_var mgr (fromIntegral i) >>= mkBdd
+  | otherwise = withMgr mgr $ \mgrp ->
+                  cw_bdd_ith_var mgrp (fromIntegral i) >>= mkBdd
 
 binop :: (BddP -> BddP -> IO BddP) -> Bdd -> Bdd -> IO Bdd
 binop f = \b1 b2 -> do
   checkSameManager b1 b2
-  withBdd b1 $ \b1 -> do
-    withBdd b2 $ \b2 -> do
-      f b1 b2 >>= mkBdd
+  withBdd b1 $ \b1p -> do
+    withBdd b2 $ \b2p -> do
+      f b1p b2p >>= mkBdd
 
 ternary :: (BddP -> BddP -> BddP -> IO BddP) -> Bdd -> Bdd -> Bdd -> IO Bdd
 ternary f = \b1 b2 b3 -> do
   checkSameManager b1 b2
   checkSameManager b1 b3
-  withBdd b1 $ \b1 -> do
-    withBdd b2 $ \b2 -> do
-      withBdd b3 $ \b3 -> do
-        f b1 b2 b3 >>= mkBdd
+  withBdd b1 $ \b1p -> do
+    withBdd b2 $ \b2p -> do
+      withBdd b3 $ \b3p -> do
+        f b1p b2p b3p >>= mkBdd
 
 foreign import ccall "cudd_wrappers.h cw_bdd_not" cw_bdd_not
   :: BddP -> IO BddP
@@ -446,11 +445,11 @@ bddUnivAbstract = binop cw_bdd_univ_abstract
 foreign import ccall "cudd.h Cudd_CountMinterm" cudd_CountMinterm
   :: DdManagerP -> DdNodeP -> CInt -> IO CDouble
 bddCountMinterms :: Bdd -> IO Double
-bddCountMinterms b = withBdd b $ \b -> do
-  ddnode <- cw_bdd_ddnode b
-  ddmanager <- cw_bdd_ddmanager b
-  numVars <- cudd_ReadSize ddmanager
-  res <- cudd_CountMinterm ddmanager ddnode numVars
+bddCountMinterms b = withBdd b $ \bp -> do
+  ddnode <- cw_bdd_ddnode bp
+  ddmanager <- cw_bdd_ddmanager bp
+  nVars <- cudd_ReadSize ddmanager
+  res <- cudd_CountMinterm ddmanager ddnode nVars
   when (res == fromIntegral cUDD_OUT_OF_MEM) $ do
     throw CuddMemoryOut
   return $ realToFrac res
@@ -462,14 +461,14 @@ data VarAssign = Positive | Negative | DoNotCare
 foreign import ccall "cudd.h Cudd_bddPickOneCube" cudd_bddPickOneCube
   :: DdManagerP -> DdNodeP -> Ptr CChar -> IO CInt
 bddPickOneMinterm :: Bdd -> IO (Maybe [(Int, VarAssign)])
-bddPickOneMinterm b = withBdd b $ \b -> do
-  ddmanager <- cw_bdd_ddmanager b
-  numVars <- fromIntegral <$> cudd_ReadSize ddmanager
-  bracket (mallocArray numVars) free $ \arr -> do
-    ddnode <- cw_bdd_ddnode b
+bddPickOneMinterm b = withBdd b $ \bp -> do
+  ddmanager <- cw_bdd_ddmanager bp
+  nVars <- fromIntegral <$> cudd_ReadSize ddmanager
+  bracket (mallocArray nVars) free $ \arr -> do
+    ddnode <- cw_bdd_ddnode bp
     rc <- cudd_bddPickOneCube ddmanager ddnode arr
     if rc == 1
-       then do values <- peekArray numVars arr
+       then do values <- peekArray nVars arr
                liftM Just $ forM (zip [0..] values) $ \(idx, val) -> do
                  case val of
                    0 -> return (idx, Negative)
@@ -484,9 +483,9 @@ foreign import ccall "cudd.h Cudd_ReadLogicZero" cudd_ReadLogicZero
 foreign import ccall "cudd.h Cudd_ReadOne" cudd_ReadOne
   :: DdManagerP -> IO DdNodeP
 bddToBool :: Bdd -> IO Bool
-bddToBool bdd = withBdd bdd $ \bdd -> do
-  ddmanager <- cw_bdd_ddmanager bdd
-  ddnode <- cw_bdd_ddnode bdd
+bddToBool bdd = withBdd bdd $ \bddp -> do
+  ddmanager <- cw_bdd_ddmanager bddp
+  ddnode <- cw_bdd_ddnode bddp
   isTrue <- (ddnode ==) <$> cudd_ReadOne ddmanager
   if isTrue then return True
      else do isFalse <- (ddnode ==) <$> cudd_ReadLogicZero ddmanager

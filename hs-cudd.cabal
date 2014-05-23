@@ -31,7 +31,7 @@ Library
   Build-depends:     base, unix
 
   Build-tools:       hsc2hs
-  ghc-options:       -Wall -fno-warn-orphans -fno-warn-name-shadowing -fno-warn-unused-do-bind
+  ghc-options:       -Wall
   cc-options:        -DHAVE_IEEE_754 -DSIZEOF_VOID_P=8 -DSIZEOF_LONG=8
                      -- -DDD_DEBUG
                      -- -DDD_CACHE_PROFILE
