@@ -1,17 +1,20 @@
 name:                hs-cudd
+category:            Data
 version:             0.0.0
-synopsis:            Haskell bindings to CUDD, the CU Decision Diagram library
 license:             BSD3
 license-file:        LICENSE
+
 author:              Bradford Larsen
 maintainer:          brad.larsen@gmail.com
-category:            Data
-build-Type:          Simple
-cabal-version:       >=1.9.2
 homepage:            https://github.com/bradlarsen/hs-cudd
 bug-reports:         https://github.com/bradlarsen/hs-cudd/issues
 
+build-Type:          Simple
+cabal-version:       >=1.9.2
+
+synopsis:            Haskell bindings to CUDD, the CU Decision Diagram library
 description:
+
 
 library
   hs-source-dirs:    src
