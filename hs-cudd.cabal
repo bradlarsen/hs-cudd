@@ -1,36 +1,24 @@
-Name:                hs-cudd
-Version:             0.0.0
-Synopsis:            Haskell bindings to the CUDD decision diagram library
+name:                hs-cudd
+version:             0.0.0
+synopsis:            Haskell bindings to CUDD, the CU Decision Diagram library
+license:             BSD3
+license-file:        LICENSE
+author:              Bradford Larsen
+maintainer:          brad.larsen@gmail.com
+category:            Data
+build-Type:          Simple
+cabal-version:       >=1.9.2
 
--- A longer description of the package.
--- Description:
+description:
 
--- The license under which the package is released.
-License:             BSD3
-License-file:        LICENSE
-
-Author:              Bradford Larsen
-Maintainer:          brad.larsen@gmail.com
-
-Category:            Data
-Build-type:          Simple
-
--- Extra files to be distributed with the package, such as examples or
--- a README.
--- Extra-source-files:
-
-Cabal-version:       >=1.9.2
-
-
-Library
-  Hs-Source-Dirs:    src
-  Exposed-modules:   Cudd
+library
+  hs-source-dirs:    src
+  exposed-Modules:   Cudd
                      HsCuddPrelude
-  -- Modules not exported by this package.
-  Other-modules:     ForeignHandle
-  Build-depends:     base, unix
+  other-modules:     ForeignHandle
+  build-depends:     base, unix
 
-  Build-tools:       hsc2hs
+  build-tools:       hsc2hs
   ghc-options:       -Wall
   cc-options:        -DHAVE_IEEE_754 -DSIZEOF_VOID_P=8 -DSIZEOF_LONG=8
                      -- -DDD_DEBUG
