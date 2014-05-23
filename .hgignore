@@ -1,7 +1,0 @@
-syntax: glob
-
-cudd-2.5.0.tar.gz
-cudd-2.5.0/include
-test/*.dot
-tags
-.tags
