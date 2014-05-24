@@ -2,7 +2,7 @@ hs-cudd: Haskell bindings to the CU Decision Diagram library
 ============================================================
 
 This package provides Haskell bindings to CUDD, the
-[CU Decision Diagram library][http://vlsi.colorado.edu/~fabio/CUDD/], a C
+[CU Decision Diagram library](http://vlsi.colorado.edu/~fabio/CUDD/), a C
 library implementing several decision diagram data structures, such as
 binary decision diagrams and algebraic decision diagrams.
 
