@@ -1,1 +1,10 @@
 dist
+*.swp
+*.swo
+*.o
+*.hi
+*~
+cabal-dev/
+tags
+TAGS
+.DS_Store
