@@ -11,35 +11,35 @@ import PropToBdd
 import HsCuddPrelude
 
 import Data.IORef (newIORef, readIORef, writeIORef)
---import System.Random (mkStdGen)
 
 import Test.QuickCheck
   (Property, quickCheckWithResult, -- verboseCheckWithResult,
-   --Args (maxSuccess, maxDiscard, replay),
+   Args (maxSuccess, replay, maxSize),
    stdArgs,
    Testable, (==>), forAllShrink, shrinkIntegral, choose,
    Result (Failure, NoExpectedFailure), elements, Gen,
    Arbitrary (arbitrary, shrink))
 import Test.QuickCheck.Monadic (monadicIO, assert, run, pre, pick)
+import Test.QuickCheck.Random (mkQCGen)
 
 import System.Mem (performGC)
 import System.IO (withFile, IOMode (WriteMode))
 
 
 prop_symbolicEvaluation :: Prop Int -> Property
-prop_symbolicEvaluation prop = monadicIO $ do
+prop_symbolicEvaluation pr = monadicIO $ do
   mgr  <- run newMgr
-  bdd  <- run $ synthesizeBdd mgr prop
-  forM_ (assignments $ vars prop) $ \ass -> do
+  bdd  <- run $ synthesizeBdd mgr pr
+  forM_ (assignments $ vars pr) $ \ass -> do
      rhs <- run $ evalBdd ass mgr bdd
-     assert (eval ass prop == rhs)
+     assert (eval ass pr == rhs)
   run performGC
 
 prop_symbolicEvaluationSame :: Prop Int -> Property
-prop_symbolicEvaluationSame prop = monadicIO $ do
+prop_symbolicEvaluationSame pr = monadicIO $ do
   eq   <- run $ do mgr  <- newMgr
-                   bdd  <- synthesizeBdd mgr prop
-                   bdd' <- synthesizeBdd mgr prop
+                   bdd  <- synthesizeBdd mgr pr
+                   bdd' <- synthesizeBdd mgr pr
                    bddEqual bdd bdd'
   assert eq
   run performGC
@@ -57,13 +57,13 @@ prop_projectionFunSize =
     run performGC
 
 prop_nodesAtLevel :: Prop Int -> Property
-prop_nodesAtLevel prop =
-  let mMaxVar = maxVar prop in
+prop_nodesAtLevel pr =
+  let mMaxVar = maxVar pr in
   isJust mMaxVar ==>
   let maxVar = fromJust mMaxVar in
     monadicIO $ do
       (lhs, rhs) <- run $ do mgr      <- newMgr
-                             void (synthesizeBdd mgr prop)
+                             void (synthesizeBdd mgr pr)
                              -- If a GC happens between the computation of
                              -- nNodes and sumNodes, the counts might differ!
                              -- Ugh.  So, if we force GC first, if all finalizers
@@ -84,10 +84,10 @@ mkCube mgr [] = bddTrue mgr
 mkCube _mgr (v : vs) = foldM bddAnd v vs
 
 quantifier :: (Bdd -> Bdd -> IO Bdd) -> (Bdd -> Bdd -> IO Bdd) -> Prop Int -> Property
-quantifier q q' prop = monadicIO $ do
+quantifier q q' pr = monadicIO $ do
   eq     <- run $ do mgr     <- newMgr
-                     propBdd <- synthesizeBdd mgr prop
-                     varBdds <- mapM (bddIthVar mgr) (vars prop)
+                     propBdd <- synthesizeBdd mgr pr
+                     varBdds <- mapM (bddIthVar mgr) (vars pr)
                      lhs     <- foldM q propBdd varBdds
                      rhs     <- q' propBdd =<< mkCube mgr varBdds
                      bddEqual lhs rhs
@@ -115,37 +115,37 @@ permutation =
   in loop []
 
 prop_reorderSymbolicEvaluation :: Prop Int -> Property
-prop_reorderSymbolicEvaluation prop = monadicIO $ do
-  let mv = maxVar prop
+prop_reorderSymbolicEvaluation pr = monadicIO $ do
+  let mv = maxVar pr
   pre (isJust mv && fromJust mv <= 10)
   mgr <- run newMgr
-  propBdd <- run $ synthesizeBdd mgr prop
+  propBdd <- run $ synthesizeBdd mgr pr
   perm <- pick (permutation [0..fromJust mv])
   run $ reorderVariables mgr perm
-  forM_ (assignments $ vars prop) $ \ass -> do
-    eq <- run $ (eval ass prop ==) <$> evalBdd ass mgr propBdd
+  forM_ (assignments $ vars pr) $ \ass -> do
+    eq <- run $ (eval ass pr ==) <$> evalBdd ass mgr propBdd
     assert eq
   run performGC
 
 -- This isn't named so well.
 prop_reorderIdempotent :: Prop Int -> Property
-prop_reorderIdempotent prop = monadicIO $ do
-  let mv = maxVar prop
+prop_reorderIdempotent pr = monadicIO $ do
+  let mv = maxVar pr
   pre (isJust mv && fromJust mv <= 10)
   mgr <- run newMgr
-  propBdd <- run $ synthesizeBdd mgr prop
+  propBdd <- run $ synthesizeBdd mgr pr
   perm <- pick (permutation [0..fromJust mv])
   run $ reorderVariables mgr perm
-  propBdd' <- run $ synthesizeBdd mgr prop
+  propBdd' <- run $ synthesizeBdd mgr pr
   ok <- run (bddEqual propBdd propBdd')
   assert ok
 
 
 -- Does the proposition have at least 2 variables?
 nontrivial :: Prop Int -> Bool
-nontrivial prop = case maxVar prop of
-                    Nothing -> False
-                    Just i  -> 1 <= i
+nontrivial pr = case maxVar pr of
+                  Nothing -> False
+                  Just i  -> 1 <= i
 
 unsafeMaxVar :: Prop Int -> Int
 unsafeMaxVar = fromJust . maxVar
@@ -160,10 +160,10 @@ data SplitProp = SplitProp { prop   :: Prop Int
   deriving (Eq, Show)
 
 mkSplitProp :: String -> Prop Int -> Int -> [Int] -> [Int] -> SplitProp
-mkSplitProp func prop i1 prefix suffix =
-  if not (nontrivial prop)
+mkSplitProp func pr i1 prefix suffix =
+  if not (nontrivial pr)
     then err "trivial prop"
-  else let mv = fromJust (maxVar prop) in
+  else let mv = fromJust (maxVar pr) in
        if not (i1 < mv)
          then err "bad i1"
        else if any (\pv -> pv > mv) prefix
@@ -172,14 +172,14 @@ mkSplitProp func prop i1 prefix suffix =
          then err "bad suffix values"
        else if any (\pv -> any (\sv -> sv <= pv) suffix) prefix
          then err "bad prefix/suffix"
-       else SplitProp prop i1 prefix suffix
+       else SplitProp pr i1 prefix suffix
   where err msg = error (func ++ ": " ++ msg)
 
 i2 :: SplitProp -> Int
 i2 = succ . i1
 
 --splitPropMaxVar :: SplitProp -> Int
---splitPropMaxVar sp = fromJust (maxVar (prop sp))
+--splitPropMaxVar sp = fromJust (maxVar (pr sp))
 
 split2 :: [a] -> Gen ([a], [a])
 split2 vs = do
@@ -196,13 +196,13 @@ split2 vs = do
 --  return (take i1 vs, drop i1 (take i2 vs), drop i2 vs)
 
 genSplitProp :: Prop Int -> Gen SplitProp
-genSplitProp prop
-  | nontrivial prop = do
-      i1 <- choose (0, unsafeMaxVar prop - 1)
+genSplitProp pr
+  | nontrivial pr = do
+      i1 <- choose (0, unsafeMaxVar pr - 1)
       let i2 = succ i1
-      (prefix, suffix) <- split2 ([0..i1 - 1] ++ [i2 + 1..unsafeMaxVar prop])
-      return $ mkSplitProp "genSplitProp" prop i1 prefix suffix
-  | otherwise = error "trivial prop"
+      (prefix, suffix) <- split2 ([0..i1 - 1] ++ [i2 + 1..unsafeMaxVar pr])
+      return $ mkSplitProp "genSplitProp" pr i1 prefix suffix
+  | otherwise = error "trivial pr"
 
 shrinkPrefixSuffix :: SplitProp -> [SplitProp]
 shrinkPrefixSuffix sp = do
@@ -219,13 +219,13 @@ shrinkIndexes sp = do
 
 shrinkProp :: SplitProp -> [SplitProp]
 shrinkProp sp = do
-  prop' <- shrink (prop sp)
-  guard (nontrivial prop')
-  let mv = unsafeMaxVar prop'
+  pr' <- shrink (prop sp)
+  guard (nontrivial pr')
+  let mv = unsafeMaxVar pr'
   guard (i2 sp <= mv)
   let prefix' = takeWhile (<= mv) (prefix sp)
   let suffix' = takeWhile (<= mv) (suffix sp)
-  return $ mkSplitProp "shrinkProp" prop' (i1 sp) prefix' suffix'
+  return $ mkSplitProp "shrinkProp" pr' (i1 sp) prefix' suffix'
 
 instance Arbitrary SplitProp where
   arbitrary = let loop = do p <- arbitrary
@@ -279,16 +279,19 @@ prop_varOrderInvariant sp =
 main :: IO ()
 main = do
   failed <- newIORef False
-  --let conf = stdArgs { maxSuccess = 1000, maxDiscard = 1000, replay = Just (mkStdGen 0, 100) }
-  let conf = stdArgs
+  let conf = stdArgs { maxSuccess = 5000
+                     , maxSize = 150
+                     , replay = Just (mkQCGen 0, 100)
+                     }
+  --let conf = stdArgs
   let qc :: Testable p => String -> p -> IO ()
-      qc name prop = do printf "%s: " name >> hFlush stdout
-                        --res <- verboseCheckWithResult conf prop
-                        res <- quickCheckWithResult conf prop
-                        case res of
-                          Failure {}           -> writeIORef failed True
-                          NoExpectedFailure {} -> writeIORef failed True
-                          _                    -> return ()
+      qc name pr = do printf "%s: " name >> hFlush stdout
+                      --res <- verboseCheckWithResult conf pr
+                      res <- quickCheckWithResult conf pr
+                      case res of
+                        Failure {}           -> writeIORef failed True
+                        NoExpectedFailure {} -> writeIORef failed True
+                        _                    -> return ()
 
   qc "prop_symbolicEvaluation" prop_symbolicEvaluation
   qc "prop_symbolicEvaluationSame" prop_symbolicEvaluationSame

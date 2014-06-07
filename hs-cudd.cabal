@@ -152,16 +152,37 @@ test-suite hunit
   hs-source-dirs:    test
   main-is:           UnitTests.hs
   build-depends:     base, hs-cudd, HUnit
-  ghc-options:       -Wall
+  ghc-options:       -Wall -rtsopts
 
--- test-suite properties
---   type:              exitcode-stdio-1.0
---   hs-source-dirs:    test
---   main-is:           PropertyTests.hs
---   build-depends:     base, hs-cudd, propositional, QuickCheck, containers, random, mtl
---   ghc-options:       -Wall -fno-warn-orphans -fno-warn-name-shadowing
---                      -fno-warn-unused-do-bind
---
+test-suite properties
+  type:              exitcode-stdio-1.0
+  hs-source-dirs:    test
+
+  build-depends:
+    base,
+    bytestring,
+    containers,
+    hs-cudd,
+    mtl,
+    QuickCheck >= 2.7 && < 2.8,
+    smallcheck >= 1.1 && < 1.2,
+    text,
+    vector
+
+  main-is:           PropertyTests.hs
+
+  other-modules:
+    DimacsCnfParser
+    Prop
+    PropCSE
+    PropEval
+    PropGenerators
+    PropToBdd
+    PropositionalPrelude
+    SList
+
+  ghc-options:       -Wall -rtsopts
+
 -- test-suite nqueens
 --   type:              exitcode-stdio-1.0
 --   hs-source-dirs:    test
