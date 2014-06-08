@@ -1,5 +1,5 @@
 -- | Strict lists with element type 'a'.
-{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, DeriveGeneric,
+{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable,
              FlexibleInstances, MultiParamTypeClasses #-}
 module SList
   (
@@ -13,9 +13,7 @@ import Data.Foldable (Foldable)
 import qualified Data.Foldable as Foldable
 import Data.List (sort)
 import Data.Traversable (Traversable)
-import GHC.Generics (Generic)
 
-import Test.SmallCheck.Series (Serial)
 import Test.QuickCheck (Arbitrary (arbitrary, shrink),
   CoArbitrary (coarbitrary),
   listOf)
@@ -23,9 +21,7 @@ import Test.QuickCheck (Arbitrary (arbitrary, shrink),
 data SList a
   = SNil
   | SCons !a !(SList a)
-  deriving (Read, Show, Eq, Ord, Functor, Foldable, Traversable, Generic)
-
-instance (Serial m a) => Serial m (SList a)
+  deriving (Read, Show, Eq, Ord, Functor, Foldable, Traversable)
 
 slistFromList :: [a] -> SList a
 slistFromList = foldr SCons SNil

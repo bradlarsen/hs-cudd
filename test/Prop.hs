@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, DeriveGeneric,
+{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable,
              FlexibleInstances, MultiParamTypeClasses #-}
 -- | Sentences in propositional logic.
 module Prop
@@ -12,8 +12,6 @@ module Prop
 import PropositionalPrelude
 import qualified Data.Set as Set
 import qualified Data.Foldable as Foldable
-import GHC.Generics (Generic)
-import Test.SmallCheck.Series (Serial)
 
 -- | A sentence in propositional logic with variable type 'v'.
 data Prop v
@@ -28,9 +26,7 @@ data Prop v
   | PXor  !(Prop v) !(Prop v)
   | PXnor !(Prop v) !(Prop v)
   | PIte  !(Prop v) !(Prop v) !(Prop v)
-  deriving (Read, Show, Eq, Ord, Functor, Foldable, Traversable, Generic)
-
-instance (Serial m v) => Serial m (Prop v)
+  deriving (Read, Show, Eq, Ord, Functor, Foldable, Traversable)
 
 vars :: (Ord v) => Prop v -> [v]
 vars = Set.toList . Set.fromList . Foldable.toList

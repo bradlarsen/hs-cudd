@@ -23,7 +23,6 @@ import Test.QuickCheck.Monadic (monadicIO, assert, run, pre, pick)
 import Test.QuickCheck.Random (mkQCGen)
 
 import System.Mem (performGC)
-import System.IO (withFile, IOMode (WriteMode))
 
 
 prop_symbolicEvaluation :: Prop Int -> Property
@@ -51,8 +50,8 @@ prop_projectionFunSize =
     eq  <- run $ do mgr            <- newMgr
                     idxBdd         <- bddIthVar mgr idx
                     idxBddNumNodes <- bddNumNodes idxBdd
-                    size           <- numNodes mgr
-                    return (idxBddNumNodes == 2 && size == 2)
+                    size'          <- numNodes mgr
+                    return (idxBddNumNodes == 2 && size' == 2)
     assert eq
     run performGC
 
@@ -60,7 +59,7 @@ prop_nodesAtLevel :: Prop Int -> Property
 prop_nodesAtLevel pr =
   let mMaxVar = maxVar pr in
   isJust mMaxVar ==>
-  let maxVar = fromJust mMaxVar in
+  let mVar = fromJust mMaxVar in
     monadicIO $ do
       (lhs, rhs) <- run $ do mgr      <- newMgr
                              void (synthesizeBdd mgr pr)
@@ -71,7 +70,7 @@ prop_nodesAtLevel pr =
                              -- same counts.  This seems fragile!
                              performGC
                              nNodes   <- numNodes mgr
-                             sumNodes <- sum <$> mapM (numNodesAtLevel mgr) [0..maxVar]
+                             sumNodes <- sum <$> mapM (numNodesAtLevel mgr) [0..mVar]
                              return (nNodes, 1 + sumNodes)
       when (lhs /= rhs) $ run $ do
         hPrintf stderr "\n!!! lhs is %d, rhs is %d\n" lhs rhs
@@ -160,19 +159,19 @@ data SplitProp = SplitProp { prop   :: Prop Int
   deriving (Eq, Show)
 
 mkSplitProp :: String -> Prop Int -> Int -> [Int] -> [Int] -> SplitProp
-mkSplitProp func pr i1 prefix suffix =
+mkSplitProp func pr i1' prefix' suffix' =
   if not (nontrivial pr)
     then err "trivial prop"
   else let mv = fromJust (maxVar pr) in
-       if not (i1 < mv)
-         then err "bad i1"
-       else if any (\pv -> pv > mv) prefix
+       if not (i1' < mv)
+         then err "bad i1'"
+       else if any (\pv -> pv > mv) prefix'
          then err "bad prefix values"
-       else if any (\sv -> sv > mv) suffix
+       else if any (\sv -> sv > mv) suffix'
          then err "bad suffix values"
-       else if any (\pv -> any (\sv -> sv <= pv) suffix) prefix
+       else if any (\pv -> any (\sv -> sv <= pv) suffix') prefix'
          then err "bad prefix/suffix"
-       else SplitProp pr i1 prefix suffix
+       else SplitProp pr i1' prefix' suffix'
   where err msg = error (func ++ ": " ++ msg)
 
 i2 :: SplitProp -> Int
@@ -198,10 +197,10 @@ split2 vs = do
 genSplitProp :: Prop Int -> Gen SplitProp
 genSplitProp pr
   | nontrivial pr = do
-      i1 <- choose (0, unsafeMaxVar pr - 1)
-      let i2 = succ i1
-      (prefix, suffix) <- split2 ([0..i1 - 1] ++ [i2 + 1..unsafeMaxVar pr])
-      return $ mkSplitProp "genSplitProp" pr i1 prefix suffix
+      i1' <- choose (0, unsafeMaxVar pr - 1)
+      let i2' = succ i1'
+      (prefix', suffix') <- split2 ([0..i1' - 1] ++ [i2' + 1..unsafeMaxVar pr])
+      return $ mkSplitProp "genSplitProp" pr i1' prefix' suffix'
   | otherwise = error "trivial pr"
 
 shrinkPrefixSuffix :: SplitProp -> [SplitProp]
@@ -243,35 +242,36 @@ instance Arbitrary SplitProp where
 -- Does a less general property---namely, about the number of nodes *at levels i1
 -- and i2*---hold?  To test this, I need to be able to get the count of nodes at
 -- a given level from CUDD, which is functionality that doesn't seem to be built in.
-prop_varOrderInvariant :: SplitProp -> Property
-prop_varOrderInvariant sp =
-  let propMaxVar = unsafeMaxVar (prop sp) in
-  monadicIO $ do
-    (mgr, propBdd, i1i2Size, i2i1Size) <- run $ do
-        mgr <- newMgr
-        propBdd <- synthesizeBdd mgr (prop sp)
-        i1i2Size <- bddNumNodes propBdd
-        let i2i1Order = [0..i1 sp - 1] ++ [i2 sp, i1 sp] ++ [i2 sp + 1..propMaxVar]
-        reorderVariables mgr i2i1Order
-        i2i1Size <- bddNumNodes propBdd
-        return (mgr, propBdd, i1i2Size, i2i1Size)
-    pre (i1i2Size <= i2i1Size)
 
-    let order1 = prefix sp ++ [i1 sp, i2 sp] ++ suffix sp
-    let order2 = prefix sp ++ [i2 sp, i1 sp] ++ suffix sp
-
-    run $ reorderVariables mgr order1 >> performGC
-    order1Size <- run $ bddNumNodes propBdd
-    run $ reorderVariables mgr order2 >> performGC
-    order2Size <- run $ bddNumNodes propBdd
-    when (order1Size > order2Size) $ run $ do
-      withFile "order1.dot" WriteMode $ \out -> do
-        reorderVariables mgr order1
-        bddToDot [(propBdd, show $ prop sp)] (map show [0..propMaxVar]) out
-      withFile "order2.dot" WriteMode $ \out -> do
-        reorderVariables mgr order2
-        bddToDot [(propBdd, show $ prop sp)] (map show [0..propMaxVar]) out
-    assert (order1Size <= order2Size)
+-- prop_varOrderInvariant :: SplitProp -> Property
+-- prop_varOrderInvariant sp =
+--   let propMaxVar = unsafeMaxVar (prop sp) in
+--   monadicIO $ do
+--     (mgr, propBdd, i1i2Size, i2i1Size) <- run $ do
+--         mgr <- newMgr
+--         propBdd <- synthesizeBdd mgr (prop sp)
+--         i1i2Size <- bddNumNodes propBdd
+--         let i2i1Order = [0..i1 sp - 1] ++ [i2 sp, i1 sp] ++ [i2 sp + 1..propMaxVar]
+--         reorderVariables mgr i2i1Order
+--         i2i1Size <- bddNumNodes propBdd
+--         return (mgr, propBdd, i1i2Size, i2i1Size)
+--     pre (i1i2Size <= i2i1Size)
+--
+--     let order1 = prefix sp ++ [i1 sp, i2 sp] ++ suffix sp
+--     let order2 = prefix sp ++ [i2 sp, i1 sp] ++ suffix sp
+--
+--     run $ reorderVariables mgr order1 >> performGC
+--     order1Size <- run $ bddNumNodes propBdd
+--     run $ reorderVariables mgr order2 >> performGC
+--     order2Size <- run $ bddNumNodes propBdd
+--     when (order1Size > order2Size) $ run $ do
+--       withFile "order1.dot" WriteMode $ \out -> do
+--         reorderVariables mgr order1
+--         bddToDot [(propBdd, show $ prop sp)] (map show [0..propMaxVar]) out
+--       withFile "order2.dot" WriteMode $ \out -> do
+--         reorderVariables mgr order2
+--         bddToDot [(propBdd, show $ prop sp)] (map show [0..propMaxVar]) out
+--     assert (order1Size <= order2Size)
 
 
 
