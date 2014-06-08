@@ -74,10 +74,10 @@ prettyPrint cnf = LTB.toLazyText $ V.foldl (\b c -> b $+$ bClause c) bHeader (cl
   int :: Int32 -> LTB.Builder
   int  = LTB.decimal
 
-  a <+> b = a <> LTB.singleton ' ' <> b
+  a <+> b = a `mappend` LTB.singleton ' ' `mappend` b
   infixr 6 <+>
 
-  a $+$ b = a <> LTB.singleton '\n' <> b
+  a $+$ b = a `mappend` LTB.singleton '\n' `mappend` b
   infixr 6 $+$
 
 

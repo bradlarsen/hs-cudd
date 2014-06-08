@@ -16,7 +16,7 @@ import Control.Monad as X (
 import Data.Int as X (Int32, Int64)
 import Data.List as X (lookup, delete, splitAt, sort, sortBy, foldl', unfoldr)
 import Data.Maybe as X (fromJust, isJust, isNothing, mapMaybe)
-import Data.Monoid as X (Monoid, mempty, mappend, (<>), mconcat)
+import Data.Monoid as X (Monoid, mempty, mappend, mconcat)
 import Data.Ord as X (comparing)
 import Data.Typeable as X (Typeable)
 import Data.Word as X (Word)
