@@ -279,8 +279,8 @@ instance Arbitrary SplitProp where
 main :: IO ()
 main = do
   failed <- newIORef False
-  let conf = stdArgs { maxSuccess = 5000
-                     , maxSize = 150
+  let conf = stdArgs { maxSuccess = 3000
+                     , maxSize = 120
                      , replay = Just (mkQCGen 0, 100)
                      }
   --let conf = stdArgs
