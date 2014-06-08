@@ -81,11 +81,10 @@ numNodes = numBindings . propBindings
 
 maxVar :: (Ord v) => CSEProp v -> Maybe v
 maxVar prop =
-  let vs = filter isVar . IntMap.elems . idxToPropHC . propBindings $ prop
-      isVar (PHCVar _) = True
-      isVar _          = False
-      mv               = if null vs then Nothing else Just (maximum vs)
-   in fmap (\(PHCVar v) -> v) mv
+  let vs = mapMaybe getVar . IntMap.elems . idxToPropHC . propBindings $ prop
+      getVar (PHCVar v) = Just v
+      getVar _          = Nothing
+   in if null vs then Nothing else Just (maximum vs)
 
 vars :: (Ord v) => CSEProp v -> [v]
 vars = mapMaybe getVar . IntMap.elems . idxToPropHC . propBindings
